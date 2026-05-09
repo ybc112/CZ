@@ -1,4 +1,12 @@
 {
+  "build": {
+    "env": {
+      "VITE_CHAIN_ID": "0x61",
+      "VITE_NBT_TOKEN": "0x759A0bF5819BDBa659dF7CD4E8d3BeBe4D674329",
+      "VITE_STAKING_BANK": "0x498061500089B9521EdEf5855e6e91b6aB037F7D",
+      "VITE_NBT_PAIR": ""
+    }
+  },
   "rewrites": [
     { "source": "/(.*)", "destination": "/" }
   ]

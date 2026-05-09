@@ -20,6 +20,8 @@ export default function TokenMiningPage({
   tokenBalance,
   stakingAllowance,
   contracts,
+  isCorrectNetwork,
+  onSwitchNetwork,
   onRefresh
 }) {
   const { t } = useLanguage();
@@ -96,6 +98,10 @@ export default function TokenMiningPage({
   const handleApprove = async () => {
     const tokenContract = contracts?.nbtToken;
     if (!tokenContract || !CONTRACTS.STAKING_BANK) return;
+    if (!isCorrectNetwork) {
+      onSwitchNetwork?.();
+      return;
+    }
     setIsApproving(true);
     try {
       const tx = await tokenContract.approve(CONTRACTS.STAKING_BANK, ethers.MaxUint256);
@@ -113,6 +119,10 @@ export default function TokenMiningPage({
   const handleDeposit = async () => {
     const stakingContract = contracts?.stakingBank;
     if (!stakingContract || !depositAmount) return;
+    if (!isCorrectNetwork) {
+      onSwitchNetwork?.();
+      return;
+    }
     const num = parseFloat(depositAmount);
     if (isNaN(num) || num <= 0) {
       toast.error(t('toast.invalidAmount') || '请输入有效金额');
@@ -537,6 +547,16 @@ export default function TokenMiningPage({
                 <div className="text-center text-white/40 py-4 bg-white/5 rounded-xl border border-white/5">
                   {t('tokenMining.pleaseConnect')}
                 </div>
+              ) : !isCorrectNetwork ? (
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={onSwitchNetwork}
+                  className="w-full btn-premium"
+                  style={{ background: `linear-gradient(135deg, #FF6B6B, #FF6B6BCC)` }}
+                >
+                  <span>切换到 BSC Testnet</span>
+                </motion.button>
               ) : needsApproval ? (
                 <motion.button
                   whileHover={{ scale: 1.02 }}

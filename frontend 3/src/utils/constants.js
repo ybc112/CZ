@@ -4,6 +4,8 @@ export const CONTRACTS = {
   NBT_PAIR: import.meta.env.VITE_NBT_PAIR || '',
 };
 
+const configuredChainId = (import.meta.env.VITE_CHAIN_ID || '0x61').toLowerCase();
+
 export const NETWORKS = {
   BSC_TESTNET: {
     chainId: '0x61',
@@ -41,7 +43,15 @@ export const NETWORKS = {
 };
 
 export const CURRENT_NETWORK =
-  import.meta.env.VITE_CHAIN_ID === '0x61' ? NETWORKS.BSC_TESTNET : NETWORKS.BSC_MAINNET;
+  configuredChainId === '0x38' ? NETWORKS.BSC_MAINNET : NETWORKS.BSC_TESTNET;
+
+export const EXPECTED_CHAIN_ID = parseInt(CURRENT_NETWORK.chainId, 16);
+
+export const getExplorerAddressUrl = (address) =>
+  `${CURRENT_NETWORK.blockExplorerUrls[0]}/address/${address}`;
+
+export const getExplorerTxUrl = (txHash) =>
+  `${CURRENT_NETWORK.blockExplorerUrls[0]}/tx/${txHash}`;
 
 export const calculateAPY = (dailyRate) => {
   const r = dailyRate / 100;

@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { ethers } from 'ethers';
 import toast from 'react-hot-toast';
 import { FiCheck, FiCopy, FiExternalLink, FiGift, FiInfo, FiRefreshCw, FiShare2, FiUserPlus, FiUsers } from 'react-icons/fi';
-import { formatAddress, formatNumber, parseContractError } from '../utils/constants';
+import { formatAddress, formatNumber, getExplorerAddressUrl, parseContractError } from '../utils/constants';
 import { useLanguage } from '../contexts/LanguageContext';
 
 const PAGE_SIZE = 20;
@@ -203,7 +203,7 @@ export default function ReferralPage({
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-mono text-lg text-white truncate min-w-0">{formatAddress(userInfo.referrer)}</span>
                   <a
-                    href={`https://bscscan.com/address/${userInfo.referrer}`}
+                    href={getExplorerAddressUrl(userInfo.referrer)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1 text-[#00D9A5] hover:text-[#00FFB8] transition-colors flex-shrink-0"
@@ -333,7 +333,7 @@ export default function ReferralPage({
                   <span className="font-mono text-white truncate block">{formatAddress(address)}</span>
                 </div>
                 <a
-                  href={`https://bscscan.com/address/${address}`}
+                  href={getExplorerAddressUrl(address)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1 text-[#00D9A5] transition-colors flex-shrink-0"

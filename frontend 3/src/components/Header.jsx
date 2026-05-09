@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiMenu, FiX, FiExternalLink, FiShield, FiGlobe } from 'react-icons/fi';
-import { formatAddress } from '../utils/constants';
+import { CURRENT_NETWORK, formatAddress, getExplorerAddressUrl } from '../utils/constants';
 import { useLanguage } from '../contexts/LanguageContext';
 
 // AGG Logo 组件
@@ -105,14 +105,14 @@ export default function Header({ account, isConnecting, isCorrectNetwork, onConn
                       onClick={onSwitchNetwork}
                       className="px-4 py-2 bg-[#FF6B6B]/20 border border-[#FF6B6B]/50 rounded-xl text-[#FF6B6B] text-sm font-medium hover:bg-[#FF6B6B]/30 transition-colors"
                     >
-                      {t('header.switchNetwork')}
+                      {t('header.switchNetwork')} {CURRENT_NETWORK.chainName}
                     </motion.button>
                   )}
                   <div className="hidden sm:flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#1A2332] border border-white/5">
                     <div className="w-2 h-2 rounded-full bg-[#00D9A5] animate-pulse" />
                     <span className="text-sm font-medium text-white/90">{formatAddress(account)}</span>
                     <a
-                      href={`https://bscscan.com/address/${account}`}
+                      href={getExplorerAddressUrl(account)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-white/40 hover:text-[#00D9A5] transition-colors"

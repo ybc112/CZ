@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ethers } from 'ethers';
-import { CURRENT_NETWORK } from '../utils/constants';
+import { CURRENT_NETWORK, EXPECTED_CHAIN_ID } from '../utils/constants';
 
 // 创建默认的只读 Provider（用于未连接钱包时读取链上数据）
 const createDefaultProvider = () => {
@@ -25,7 +25,7 @@ export function useWallet() {
   // 优先使用钱包 Provider，否则使用默认 Provider
   const provider = walletProvider || defaultProvider;
 
-  const isCorrectNetwork = chainId === parseInt(CURRENT_NETWORK.chainId, 16);
+  const isCorrectNetwork = !account || chainId === EXPECTED_CHAIN_ID;
 
   // 检查钱包是否已连接
   const checkConnection = useCallback(async () => {
@@ -33,13 +33,14 @@ export function useWallet() {
 
     try {
       const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+      const currentChainId = await window.ethereum.request({ method: 'eth_chainId' });
+      setChainId(parseInt(currentChainId, 16));
+
       if (accounts.length > 0) {
         const browserProvider = new ethers.BrowserProvider(window.ethereum);
         const walletSigner = await browserProvider.getSigner();
-        const network = await browserProvider.getNetwork();
 
         setAccount(accounts[0]);
-        setChainId(Number(network.chainId));
         setWalletProvider(browserProvider);
         setSigner(walletSigner);
       }
@@ -65,10 +66,10 @@ export function useWallet() {
 
       const browserProvider = new ethers.BrowserProvider(window.ethereum);
       const walletSigner = await browserProvider.getSigner();
-      const network = await browserProvider.getNetwork();
+      const currentChainId = await window.ethereum.request({ method: 'eth_chainId' });
 
       setAccount(accounts[0]);
-      setChainId(Number(network.chainId));
+      setChainId(parseInt(currentChainId, 16));
       setWalletProvider(browserProvider);
       setSigner(walletSigner);
     } catch (err) {
@@ -116,17 +117,19 @@ export function useWallet() {
   useEffect(() => {
     if (typeof window.ethereum === 'undefined') return;
 
-    const handleAccountsChanged = (accounts) => {
+    const handleAccountsChanged = async (accounts) => {
       if (accounts.length === 0) {
         disconnect();
       } else {
         setAccount(accounts[0]);
+        const browserProvider = new ethers.BrowserProvider(window.ethereum);
+        setWalletProvider(browserProvider);
+        setSigner(await browserProvider.getSigner());
       }
     };
 
     const handleChainChanged = (chainId) => {
       setChainId(parseInt(chainId, 16));
-      window.location.reload();
     };
 
     window.ethereum.on('accountsChanged', handleAccountsChanged);

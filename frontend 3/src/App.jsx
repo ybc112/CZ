@@ -12,7 +12,7 @@ import AdminPage from './components/AdminPage';
 
 import { useWallet } from './hooks/useWallet';
 import { useAllowance, useContracts, useStakingBank, useTokenBalance, useTokenFeeConfig } from './hooks/useContracts';
-import { CONTRACTS, formatAddress, parseContractError } from './utils/constants';
+import { CONTRACTS, formatAddress, getExplorerAddressUrl, parseContractError } from './utils/constants';
 import { useLanguage } from './contexts/LanguageContext';
 
 function App() {
@@ -166,6 +166,8 @@ function App() {
             tokenBalance={tokenBalance}
             stakingAllowance={stakingAllowance}
             contracts={contracts}
+            isCorrectNetwork={isCorrectNetwork}
+            onSwitchNetwork={switchNetwork}
             onRefresh={handleRefresh}
           />
         );
@@ -331,7 +333,7 @@ function App() {
             </div>
             {CONTRACTS.STAKING_BANK && (
               <a
-                href={`https://bscscan.com/address/${CONTRACTS.STAKING_BANK}`}
+                href={getExplorerAddressUrl(CONTRACTS.STAKING_BANK)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-white/40 hover:text-[#00D9A5] text-sm transition-colors"

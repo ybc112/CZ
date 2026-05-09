@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
-import { CONTRACTS } from '../utils/constants';
+import { CONTRACTS, EXPECTED_CHAIN_ID } from '../utils/constants';
 import { ERC20_ABI, NBT_TOKEN_ABI, STAKING_BANK_ABI } from '../abi';
 
 const retryCall = async (fn, retries = 3, delay = 1000) => {
@@ -23,18 +23,41 @@ export function useContracts(signer, provider) {
   useEffect(() => {
     if (!provider) return;
 
-    const runner = signer || provider;
-    const nbtToken = CONTRACTS.NBT_TOKEN
-      ? new ethers.Contract(CONTRACTS.NBT_TOKEN, NBT_TOKEN_ABI, runner)
-      : null;
-    const stakingBank = CONTRACTS.STAKING_BANK
-      ? new ethers.Contract(CONTRACTS.STAKING_BANK, STAKING_BANK_ABI, runner)
-      : null;
+    let cancelled = false;
 
-    setContracts({
-      nbtToken,
-      stakingBank,
-    });
+    const initContracts = async () => {
+      let runner = provider;
+
+      if (signer) {
+        try {
+          const network = await signer.provider.getNetwork();
+          if (Number(network.chainId) === EXPECTED_CHAIN_ID) {
+            runner = signer;
+          }
+        } catch {
+          runner = provider;
+        }
+      }
+
+      if (cancelled) return;
+
+      const nbtToken = CONTRACTS.NBT_TOKEN
+        ? new ethers.Contract(CONTRACTS.NBT_TOKEN, NBT_TOKEN_ABI, runner)
+        : null;
+      const stakingBank = CONTRACTS.STAKING_BANK
+        ? new ethers.Contract(CONTRACTS.STAKING_BANK, STAKING_BANK_ABI, runner)
+        : null;
+
+      setContracts({
+        nbtToken,
+        stakingBank,
+      });
+    };
+
+    initContracts();
+    return () => {
+      cancelled = true;
+    };
   }, [signer, provider]);
 
   return contracts;
