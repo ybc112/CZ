@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { ethers } from 'ethers';
 import toast from 'react-hot-toast';
 import { FiDollarSign, FiTrendingUp, FiGift, FiInfo, FiChevronDown, FiChevronUp, FiZap, FiLayers, FiActivity, FiLock, FiUnlock, FiClock, FiAlertTriangle, FiUsers, FiCopy, FiCheck } from 'react-icons/fi';
-import { formatNumber, formatAddress, CONTRACTS, parseContractError } from '../utils/constants';
+import { formatNumber, formatAddress, CONTRACTS, EXPECTED_CHAIN_ID, parseContractError } from '../utils/constants';
 import { useLanguage } from '../contexts/LanguageContext';
 
 // 默认档位配置（当链上数据未加载时使用）
@@ -13,6 +13,12 @@ const DEFAULT_TIER_CONFIG = [
   { id: 2, name: '6个月', duration: 180, rate: 0.8, color: '#FF8A00' },
   { id: 3, name: '12个月', duration: 365, rate: 1.0, color: '#FF6B6B' },
 ];
+
+const getWalletChainId = async () => {
+  if (typeof window.ethereum === 'undefined') return null;
+  const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+  return parseInt(chainId, 16);
+};
 
 export default function TokenMiningPage({
   account,
@@ -96,9 +102,10 @@ export default function TokenMiningPage({
   ];
 
   const handleApprove = async () => {
-    const tokenContract = contracts?.nbtToken;
+    const tokenContract = contracts?.writeNbtToken;
     if (!tokenContract || !CONTRACTS.STAKING_BANK) return;
-    if (!isCorrectNetwork) {
+    const currentChainId = await getWalletChainId();
+    if (currentChainId !== EXPECTED_CHAIN_ID) {
       onSwitchNetwork?.();
       return;
     }
@@ -117,9 +124,10 @@ export default function TokenMiningPage({
   };
 
   const handleDeposit = async () => {
-    const stakingContract = contracts?.stakingBank;
+    const stakingContract = contracts?.writeStakingBank;
     if (!stakingContract || !depositAmount) return;
-    if (!isCorrectNetwork) {
+    const currentChainId = await getWalletChainId();
+    if (currentChainId !== EXPECTED_CHAIN_ID) {
       onSwitchNetwork?.();
       return;
     }
@@ -149,7 +157,7 @@ export default function TokenMiningPage({
   };
 
   const handleWithdraw = async (stakeId) => {
-    const stakingContract = contracts?.stakingBank;
+    const stakingContract = contracts?.writeStakingBank;
     if (!stakingContract) return;
     setWithdrawingStakeId(stakeId);
     try {
@@ -166,7 +174,7 @@ export default function TokenMiningPage({
   };
 
   const handleClaim = async (stakeId) => {
-    const stakingContract = contracts?.stakingBank;
+    const stakingContract = contracts?.writeStakingBank;
     if (!stakingContract) return;
     setClaimingStakeId(stakeId);
     try {
@@ -183,7 +191,7 @@ export default function TokenMiningPage({
   };
 
   const handleClaimAll = async () => {
-    const stakingContract = contracts?.stakingBank;
+    const stakingContract = contracts?.writeStakingBank;
     if (!stakingContract) return;
     setIsClaimingAll(true);
     try {
@@ -247,7 +255,7 @@ export default function TokenMiningPage({
 
   // 设置推荐人
   const handleSetReferrer = async () => {
-    const stakingContract = contracts?.stakingBank;
+    const stakingContract = contracts?.writeStakingBank;
     if (!stakingContract || !referrerInput) return;
     if (!ethers.isAddress(referrerInput)) {
       toast.error(t('toast.invalidAddress'));
@@ -270,7 +278,7 @@ export default function TokenMiningPage({
 
   // 领取推荐奖励
   const handleClaimReferral = async () => {
-    const stakingContract = contracts?.stakingBank;
+    const stakingContract = contracts?.writeStakingBank;
     if (!stakingContract) return;
     setIsClaimingReferral(true);
     try {
@@ -547,7 +555,7 @@ export default function TokenMiningPage({
                 <div className="text-center text-white/40 py-4 bg-white/5 rounded-xl border border-white/5">
                   {t('tokenMining.pleaseConnect')}
                 </div>
-              ) : !isCorrectNetwork ? (
+              ) : isCorrectNetwork === false ? (
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}

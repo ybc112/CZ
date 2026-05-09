@@ -29,6 +29,7 @@ export default function ReferralPage({
   const [loadingReferrals, setLoadingReferrals] = useState(false);
 
   const stakingContract = contracts?.stakingBank;
+  const writeStakingContract = contracts?.writeStakingBank;
 
   const copyReferralLink = async () => {
     if (!account) return;
@@ -72,7 +73,7 @@ export default function ReferralPage({
   };
 
   const handleSetReferrer = async () => {
-    if (!stakingContract || !referrerAddress) return;
+    if (!writeStakingContract || !referrerAddress) return;
     if (!ethers.isAddress(referrerAddress)) {
       toast.error(t('toast.invalidAddress'));
       return;
@@ -84,7 +85,7 @@ export default function ReferralPage({
 
     setIsSettingReferrer(true);
     try {
-      const tx = await stakingContract.setReferrer(referrerAddress);
+      const tx = await writeStakingContract.setReferrer(referrerAddress);
       toast.loading(t('toast.settingReferrer'), { id: 'setReferrer' });
       await tx.wait();
       toast.success(t('toast.setReferrerSuccess'), { id: 'setReferrer' });
@@ -98,10 +99,10 @@ export default function ReferralPage({
   };
 
   const handleClaimReferral = async () => {
-    if (!stakingContract) return;
+    if (!writeStakingContract) return;
     setIsClaimingReferral(true);
     try {
-      const tx = await stakingContract.claimReferralRewards();
+      const tx = await writeStakingContract.claimReferralRewards();
       toast.loading(t('toast.claimingReferral'), { id: 'claimReferral' });
       await tx.wait();
       toast.success(t('toast.claimSuccess'), { id: 'claimReferral' });

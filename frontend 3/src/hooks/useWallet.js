@@ -31,8 +31,8 @@ export function useWallet() {
   // 默认只读 Provider（始终可用）
   const defaultProvider = useMemo(() => createDefaultProvider(), []);
 
-  // 优先使用钱包 Provider，否则使用默认 Provider
-  const provider = walletProvider || defaultProvider;
+  // Read calls should always use the configured target network.
+  const provider = defaultProvider;
 
   // 断开连接
   const disconnect = useCallback(() => {
@@ -169,6 +169,7 @@ export function useWallet() {
     account,
     chainId,
     provider,
+    walletProvider,
     signer,
     isConnecting,
     isConnected: !!account,
