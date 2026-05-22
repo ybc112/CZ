@@ -4,7 +4,7 @@ export const CONTRACTS = {
   NBT_PAIR: import.meta.env.VITE_NBT_PAIR || '',
 };
 
-const configuredChainId = (import.meta.env.VITE_CHAIN_ID || '0x61').toLowerCase();
+const configuredChainId = (import.meta.env.VITE_CHAIN_ID || '0x38').toLowerCase();
 
 export const NETWORKS = {
   BSC_TESTNET: {

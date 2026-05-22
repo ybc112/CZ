@@ -14,6 +14,8 @@ const DEFAULT_TIER_CONFIG = [
   { id: 3, name: '12个月', duration: 365, rate: 1.0, color: '#FF6B6B' },
 ];
 
+const NETWORK_NAME = EXPECTED_CHAIN_ID === 56 ? 'BNB Smart Chain' : 'BSC Testnet';
+
 const getWalletChainId = async () => {
   if (typeof window.ethereum === 'undefined') return null;
   const chainId = await window.ethereum.request({ method: 'eth_chainId' });
@@ -632,7 +634,7 @@ export default function TokenMiningPage({
                   className="w-full btn-premium"
                   style={{ background: `linear-gradient(135deg, #FF6B6B, #FF6B6BCC)` }}
                 >
-                  <span>切换到 BSC Testnet</span>
+                  <span>切换到 {NETWORK_NAME}</span>
                 </motion.button>
               ) : needsApproval ? (
                 <motion.button
