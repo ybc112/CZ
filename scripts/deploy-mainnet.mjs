@@ -73,10 +73,44 @@ async function wait(tx, label) {
   return receipt;
 }
 
+function parseRpcUrls() {
+  const raw = optionalEnv('BSC_MAINNET_RPC_URLS', '');
+  const urls = raw
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (urls.length > 0) return urls;
+
+  return [
+    optionalEnv('BSC_MAINNET_RPC_URL', 'https://bsc-dataseed.binance.org/'),
+    'https://bsc-dataseed1.binance.org/',
+    'https://bsc-dataseed2.binance.org/',
+    'https://bsc.publicnode.com',
+    'https://bsc.blockpi.network/v1/rpc/public',
+  ];
+}
+
+async function createProvider() {
+  const rpcUrls = parseRpcUrls();
+  const errors = [];
+
+  for (const rpcUrl of rpcUrls) {
+    try {
+      const provider = new ethers.JsonRpcProvider(rpcUrl);
+      await provider.getNetwork();
+      return { provider, rpcUrl };
+    } catch (error) {
+      errors.push(`${rpcUrl}: ${error.message}`);
+    }
+  }
+
+  throw new Error(`Unable to connect to any BSC mainnet RPC.\n${errors.join('\n')}`);
+}
+
 async function main() {
   loadDotenv(path.join(rootDir, '.env.mainnet'));
 
-  const rpcUrl = optionalEnv('BSC_MAINNET_RPC_URL', 'https://bsc-dataseed.binance.org/');
   const privateKey = requireEnv('PRIVATE_KEY');
   const tokenName = optionalEnv('TOKEN_NAME', 'NBT');
   const tokenSymbol = optionalEnv('TOKEN_SYMBOL', 'NBT');
@@ -90,7 +124,7 @@ async function main() {
   console.log('Building contracts with forge...');
   execFileSync('forge', ['build'], { cwd: rootDir, stdio: 'inherit' });
 
-  const provider = new ethers.JsonRpcProvider(rpcUrl);
+  const { provider, rpcUrl } = await createProvider();
   const wallet = new ethers.Wallet(privateKey, provider);
   const network = await provider.getNetwork();
   if (Number(network.chainId) !== 56) {
@@ -106,6 +140,7 @@ async function main() {
   const balance = await provider.getBalance(deployer);
   console.log(`Deployer: ${deployer}`);
   console.log(`BNB balance: ${ethers.formatEther(balance)}`);
+  console.log(`RPC URL: ${rpcUrl}`);
 
   if (balance < ethers.parseEther('0.01')) {
     console.warn('WARNING: BNB balance is very low. Deployment may fail due to insufficient gas.');
