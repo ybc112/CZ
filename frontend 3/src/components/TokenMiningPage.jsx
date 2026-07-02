@@ -16,6 +16,7 @@ import {
   FiZap,
 } from 'react-icons/fi';
 import { CONTRACTS, EXPECTED_CHAIN_ID, formatAddress, formatNumber, parseContractError } from '../utils/constants';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const ZERO = ethers.ZeroAddress;
 
@@ -35,6 +36,7 @@ export default function TokenMiningPage({
   onSwitchNetwork,
   onRefresh,
 }) {
+  const { t } = useLanguage();
   const [stakeAmount, setStakeAmount] = useState('');
   const [referrerInput, setReferrerInput] = useState(() => localStorage.getItem('referrer') || '');
   const [isApprovingStake, setIsApprovingStake] = useState(false);
@@ -54,10 +56,10 @@ export default function TokenMiningPage({
   const activeRelease = miningStatus?.releaseInProgress;
 
   const rankBands = [
-    { label: '前 10 名', percent: '50%', color: '#FFB800' },
-    { label: '11-50 名', percent: '30%', color: '#00D9A5' },
-    { label: '51-100 名', percent: '15%', color: '#FF8A00' },
-    { label: '100 名以后', percent: '5%', color: '#94A3B8' },
+    { label: t('cz.node.bandTop10'), percent: '50%', color: '#FFB800' },
+    { label: t('cz.node.band11To50'), percent: '30%', color: '#00D9A5' },
+    { label: t('cz.node.band51To100'), percent: '15%', color: '#FF8A00' },
+    { label: t('cz.node.bandAfter100'), percent: '5%', color: '#94A3B8' },
   ];
 
   const selectedReferrer = useMemo(() => {
@@ -81,9 +83,9 @@ export default function TokenMiningPage({
     setIsApprovingStake(true);
     try {
       const tx = await contracts.writeNbtToken.approve(CONTRACTS.STAKING_BANK, ethers.MaxUint256);
-      toast.loading('正在授权 CZ...', { id: 'approveStake' });
+      toast.loading(t('cz.toast.approveCz'), { id: 'approveStake' });
       await tx.wait();
-      toast.success('CZ 授权成功', { id: 'approveStake' });
+      toast.success(t('cz.toast.approveCzSuccess'), { id: 'approveStake' });
       onRefresh?.();
     } catch (err) {
       toast.error(parseContractError(err), { id: 'approveStake' });
@@ -98,9 +100,9 @@ export default function TokenMiningPage({
     setIsApprovingFee(true);
     try {
       const tx = await contracts.writeFeeToken.approve(CONTRACTS.STAKING_BANK, ethers.MaxUint256);
-      toast.loading('正在授权 0.4U 交互费...', { id: 'approveFee' });
+      toast.loading(t('cz.toast.approveFee'), { id: 'approveFee' });
       await tx.wait();
-      toast.success('交互费授权成功', { id: 'approveFee' });
+      toast.success(t('cz.toast.approveFeeSuccess'), { id: 'approveFee' });
       onRefresh?.();
     } catch (err) {
       toast.error(parseContractError(err), { id: 'approveFee' });
@@ -114,19 +116,19 @@ export default function TokenMiningPage({
     if (!(await ensureNetwork())) return;
     const amountNumber = parseFloat(stakeAmount);
     if (isNaN(amountNumber) || amountNumber <= 0) {
-      toast.error('请输入有效质押数量');
+      toast.error(t('cz.toast.invalidStakeAmount'));
       return;
     }
     if (amountNumber > parseFloat(tokenBalance || '0')) {
-      toast.error('CZ 余额不足');
+      toast.error(t('cz.toast.insufficientCz'));
       return;
     }
     setIsStaking(true);
     try {
       const tx = await contracts.writeStakingBank.stake(ethers.parseEther(stakeAmount), selectedReferrer);
-      toast.loading('质押 CZ 中...', { id: 'stake' });
+      toast.loading(t('cz.toast.staking'), { id: 'stake' });
       await tx.wait();
-      toast.success('质押成功，节点排名已更新', { id: 'stake' });
+      toast.success(t('cz.toast.stakeSuccess'), { id: 'stake' });
       setStakeAmount('');
       onRefresh?.();
     } catch (err) {
@@ -141,9 +143,9 @@ export default function TokenMiningPage({
     setWithdrawingStakeId(stakeId);
     try {
       const tx = await contracts.writeStakingBank.withdraw(stakeId);
-      toast.loading('提取本金中...', { id: 'withdraw' });
+      toast.loading(t('cz.toast.withdrawing'), { id: 'withdraw' });
       await tx.wait();
-      toast.success('本金已提取', { id: 'withdraw' });
+      toast.success(t('cz.toast.withdrawSuccess'), { id: 'withdraw' });
       onRefresh?.();
     } catch (err) {
       toast.error(parseContractError(err), { id: 'withdraw' });
@@ -157,9 +159,9 @@ export default function TokenMiningPage({
     setIsClaiming(true);
     try {
       const tx = await contracts.writeStakingBank.claimNodeRewards();
-      toast.loading('领取节点收益中...', { id: 'claimNode' });
+      toast.loading(t('cz.toast.claiming'), { id: 'claimNode' });
       await tx.wait();
-      toast.success('节点收益已领取', { id: 'claimNode' });
+      toast.success(t('cz.toast.claimSuccess'), { id: 'claimNode' });
       onRefresh?.();
     } catch (err) {
       toast.error(parseContractError(err), { id: 'claimNode' });
@@ -174,18 +176,18 @@ export default function TokenMiningPage({
     try {
       await navigator.clipboard.writeText(link);
       setCopied(true);
-      toast.success('推荐链接已复制');
+      toast.success(t('cz.toast.linkCopied'));
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast.error(`复制失败，请手动复制: ${link}`);
+      toast.error(`${t('cz.toast.copyFailed')} ${link}`);
     }
   };
 
   const stats = [
-    { label: '全网质押 CZ', value: miningStatus?.totalStaked || '0', suffix: 'CZ', icon: <FiLayers /> },
-    { label: '已分配节点收益', value: miningStatus?.totalDistributed || '0', suffix: 'CZ', icon: <FiGift /> },
-    { label: '节点总数', value: miningStatus?.rankedNodeCount || 0, suffix: '个', icon: <FiUsers /> },
-    { label: '我的排名', value: userInfo?.rank ? `#${userInfo.rank}` : '-', suffix: '', icon: <FiAward /> },
+    { label: t('cz.node.statStaked'), value: miningStatus?.totalStaked || '0', suffix: 'CZ', icon: <FiLayers /> },
+    { label: t('cz.node.statDistributed'), value: miningStatus?.totalDistributed || '0', suffix: 'CZ', icon: <FiGift /> },
+    { label: t('cz.node.statNodeCount'), value: miningStatus?.rankedNodeCount || 0, suffix: t('cz.common.nodes'), icon: <FiUsers /> },
+    { label: t('cz.node.myRank'), value: userInfo?.rank ? `#${userInfo.rank}` : '-', suffix: '', icon: <FiAward /> },
   ];
 
   return (
@@ -196,8 +198,8 @@ export default function TokenMiningPage({
             <div className="flex items-center gap-4 mb-6">
               <img src="/cz-logo.png" alt="CZ" className="w-16 h-16 rounded-full object-cover shadow-lg shadow-[#FFB800]/30" />
               <div>
-                <h1 className="text-2xl md:text-4xl font-bold text-white">CZ 人生节点排名</h1>
-                <p className="text-white/50 mt-1">邀请人质押，排名就是你的链上收益。</p>
+                <h1 className="text-2xl md:text-4xl font-bold text-white">{t('cz.node.pageTitle')}</h1>
+                <p className="text-white/50 mt-1">{t('cz.node.pageSubtitle')}</p>
               </div>
             </div>
 
@@ -206,14 +208,14 @@ export default function TokenMiningPage({
                 <div key={band.label} className="p-4 rounded-xl bg-white/5 border border-white/10">
                   <div className="text-sm text-white/50">{band.label}</div>
                   <div className="text-3xl font-bold mt-1" style={{ color: band.color }}>{band.percent}</div>
-                  <div className="text-xs text-white/35 mt-1">按月度释放池分配</div>
+                  <div className="text-xs text-white/35 mt-1">{t('cz.node.bandNote')}</div>
                 </div>
               ))}
             </div>
 
             <div className="p-4 rounded-xl bg-[#FFB800]/10 border border-[#FFB800]/25 text-sm text-white/70">
               <FiInfo className="inline mr-2 text-[#FFB800]" />
-              每月释放的 CZ 100% 全部分给节点，项目方不截留。释放分配期间会临时冻结排名变动，直到本月释放全部入账。
+              {t('cz.node.releaseHint')}
             </div>
           </div>
         </motion.div>
@@ -221,7 +223,7 @@ export default function TokenMiningPage({
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-premium p-5">
           <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
             <FiDollarSign className="text-[#FFB800]" />
-            质押 CZ
+            {t('cz.node.stakeTitle')}
           </h2>
 
           <div className="space-y-4">
@@ -229,45 +231,45 @@ export default function TokenMiningPage({
               <input
                 value={referrerInput}
                 onChange={(e) => setReferrerInput(e.target.value)}
-                placeholder="推荐人地址，可从推荐链接自动带入"
+                placeholder={t('cz.node.referrerPlaceholder')}
                 className="input-premium font-mono text-sm"
               />
             )}
 
             <div>
               <div className="flex justify-between text-sm mb-2">
-                <span className="text-white/50">质押数量</span>
+                <span className="text-white/50">{t('cz.node.stakeAmount')}</span>
                 <button className="text-[#FFB800]" onClick={() => setStakeAmount(tokenBalance || '0')}>
-                  全部 {formatNumber(tokenBalance, 4)} CZ
+                  {t('cz.node.all')} {formatNumber(tokenBalance, 4)} CZ
                 </button>
               </div>
               <input
                 type="number"
                 value={stakeAmount}
                 onChange={(e) => setStakeAmount(e.target.value)}
-                placeholder="输入 CZ 数量"
+                placeholder={t('cz.node.amountPlaceholder')}
                 className="input-premium"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div className="p-3 rounded-xl bg-white/5 border border-white/5">
-                <div className="text-white/40">每次交互费</div>
+                <div className="text-white/40">{t('cz.node.interactionFee')}</div>
                 <div className="text-white font-semibold">{formatNumber(feeAmount, 4)} U</div>
               </div>
               <div className="p-3 rounded-xl bg-white/5 border border-white/5">
-                <div className="text-white/40">邀请质押奖励</div>
-                <div className="text-[#00D9A5] font-semibold">1 CZ / 人</div>
+                <div className="text-white/40">{t('cz.node.inviteStakeReward')}</div>
+                <div className="text-[#00D9A5] font-semibold">1 CZ / {t('cz.common.person')}</div>
               </div>
             </div>
 
             {needsFeeApproval ? (
               <button onClick={approveFeeToken} disabled={isApprovingFee || !account} className="w-full btn-premium disabled:opacity-50">
-                <span>{isApprovingFee ? '授权中...' : '授权 0.4U 交互费'}</span>
+                <span>{isApprovingFee ? t('cz.node.approving') : t('cz.node.approveFee')}</span>
               </button>
             ) : needsStakeApproval ? (
               <button onClick={approveStakeToken} disabled={isApprovingStake || !account} className="w-full btn-premium disabled:opacity-50">
-                <span>{isApprovingStake ? '授权中...' : '授权 CZ 质押'}</span>
+                <span>{isApprovingStake ? t('cz.node.approving') : t('cz.node.approveStake')}</span>
               </button>
             ) : (
               <button
@@ -275,7 +277,7 @@ export default function TokenMiningPage({
                 disabled={isStaking || !account || !stakeAmount || activeRelease}
                 className="w-full btn-premium disabled:opacity-50"
               >
-                <span>{activeRelease ? '月度分配中' : isStaking ? '质押中...' : '确认质押'}</span>
+                <span>{activeRelease ? t('cz.node.monthlyAllocating') : isStaking ? t('cz.toast.staking') : t('cz.node.confirmStake')}</span>
               </button>
             )}
           </div>
@@ -303,29 +305,29 @@ export default function TokenMiningPage({
             <div className="flex items-center justify-between gap-3 mb-5">
               <h2 className="text-xl font-bold flex items-center gap-2">
                 <FiZap className="text-[#00D9A5]" />
-                我的节点收益
+                {t('cz.node.myRewards')}
               </h2>
               <button onClick={copyReferralLink} disabled={!account} className="px-4 py-2 rounded-lg bg-white/10 text-white/80 hover:bg-white/15 flex items-center gap-2">
                 {copied ? <FiCheck /> : <FiCopy />}
-                {copied ? '已复制' : '复制推荐链接'}
+                {copied ? t('cz.common.copied') : t('cz.common.copyLink')}
               </button>
             </div>
 
             <div className="grid grid-cols-2 gap-4 mb-5">
               <div className="p-4 rounded-xl bg-white/5 border border-white/5">
-                <div className="text-white/45 text-sm">邀请质押量</div>
+                <div className="text-white/45 text-sm">{t('cz.node.referralVolume')}</div>
                 <div className="text-2xl font-bold text-white">{formatNumber(userInfo?.referralStakeVolume, 4)} CZ</div>
               </div>
               <div className="p-4 rounded-xl bg-white/5 border border-white/5">
-                <div className="text-white/45 text-sm">有效邀请</div>
-                <div className="text-2xl font-bold text-white">{userInfo?.directReferrals || 0} 人</div>
+                <div className="text-white/45 text-sm">{t('cz.node.directInvites')}</div>
+                <div className="text-2xl font-bold text-white">{userInfo?.directReferrals || 0} {t('cz.common.person')}</div>
               </div>
               <div className="p-4 rounded-xl bg-white/5 border border-white/5">
-                <div className="text-white/45 text-sm">邀请奖励待领</div>
+                <div className="text-white/45 text-sm">{t('cz.node.invitePending')}</div>
                 <div className="text-2xl font-bold text-[#00D9A5]">{formatNumber(userInfo?.pendingInviteRewards, 4)} CZ</div>
               </div>
               <div className="p-4 rounded-xl bg-white/5 border border-white/5">
-                <div className="text-white/45 text-sm">排名分红待领</div>
+                <div className="text-white/45 text-sm">{t('cz.node.rankPending')}</div>
                 <div className="text-2xl font-bold text-[#FFB800]">{formatNumber(userInfo?.pendingRankRewards, 4)} CZ</div>
               </div>
             </div>
@@ -335,7 +337,7 @@ export default function TokenMiningPage({
               disabled={!account || isClaiming || (!needsFeeApproval && parseFloat(userInfo?.pendingRewards || '0') <= 0)}
               className="w-full btn-premium disabled:opacity-50"
             >
-              <span>{needsFeeApproval ? '先授权 0.4U 交互费' : isClaiming ? '领取中...' : '领取全部节点收益'}</span>
+              <span>{needsFeeApproval ? t('cz.node.approveFeeFirst') : isClaiming ? t('cz.node.claiming') : t('cz.node.claimAll')}</span>
             </button>
           </div>
         </div>
@@ -343,11 +345,11 @@ export default function TokenMiningPage({
         <div className="glass-premium p-5">
           <h2 className="text-xl font-bold flex items-center gap-2 text-white mb-5">
             <FiTrendingUp className="text-[#FFB800]" />
-            节点排行榜
+            {t('cz.node.leaderboard')}
           </h2>
           <div className="space-y-2 max-h-[430px] overflow-y-auto pr-1">
             {(stakingData?.rankedNodes || []).length === 0 ? (
-              <div className="text-center py-12 text-white/35">暂无节点排名</div>
+              <div className="text-center py-12 text-white/35">{t('cz.node.noRank')}</div>
             ) : (
               stakingData.rankedNodes.map((node) => (
                 <div key={node.address} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
@@ -359,7 +361,7 @@ export default function TokenMiningPage({
                   </div>
                   <div className="text-right">
                     <div className="text-sm font-semibold text-white">{formatNumber(node.score, 4)} CZ</div>
-                    <div className="text-xs text-white/35">邀请质押量</div>
+                    <div className="text-xs text-white/35">{t('cz.node.referralVolume')}</div>
                   </div>
                 </div>
               ))
@@ -372,24 +374,24 @@ export default function TokenMiningPage({
         <div className="neon-card-inner">
           <h2 className="text-xl font-bold flex items-center gap-2 mb-5">
             <FiLock className="text-[#00D9A5]" />
-            我的质押
+            {t('cz.node.myStakes')}
           </h2>
           <div className="space-y-3">
             {(stakingData?.stakes || []).length === 0 ? (
-              <div className="text-center py-8 text-white/35">暂无质押记录</div>
+              <div className="text-center py-8 text-white/35">{t('cz.node.noStakes')}</div>
             ) : (
               stakingData.stakes.map((stake) => (
                 <div key={stake.stakeId} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-white/5 border border-white/10">
                   <div>
                     <div className="text-white font-semibold">#{stake.stakeId} · {formatNumber(stake.amount, 4)} CZ</div>
-                    <div className="text-xs text-white/35 mt-1">开始时间 {new Date(stake.startTime * 1000).toLocaleString()}</div>
+                    <div className="text-xs text-white/35 mt-1">{t('cz.node.startTime')} {new Date(stake.startTime * 1000).toLocaleString()}</div>
                   </div>
                   <button
                     onClick={() => needsFeeApproval ? approveFeeToken() : handleWithdraw(stake.stakeId)}
                     disabled={withdrawingStakeId === stake.stakeId || activeRelease}
                     className="px-4 py-2 rounded-lg bg-white/10 text-white/75 hover:bg-white/15 disabled:opacity-50"
                   >
-                    {activeRelease ? '分配中不可提取' : withdrawingStakeId === stake.stakeId ? '提取中...' : needsFeeApproval ? '先授权交互费' : '提取本金'}
+                    {activeRelease ? t('cz.node.cannotWithdraw') : withdrawingStakeId === stake.stakeId ? t('cz.node.withdrawing') : needsFeeApproval ? t('cz.node.approveFeeBeforeWithdraw') : t('cz.node.withdrawPrincipal')}
                   </button>
                 </div>
               ))

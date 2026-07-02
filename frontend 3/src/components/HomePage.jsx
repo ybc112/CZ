@@ -1,21 +1,23 @@
 import { motion } from 'framer-motion';
 import { FiArrowRight, FiAward, FiCheckCircle, FiGift, FiTrendingUp, FiUsers, FiZap } from 'react-icons/fi';
 import { formatNumber } from '../utils/constants';
+import { useLanguage } from '../contexts/LanguageContext';
 
 export default function HomePage({ onPageChange, stakingData }) {
+  const { t } = useLanguage();
   const miningStatus = stakingData?.miningStatus;
 
   const stats = [
-    { label: '全网 CZ 质押', value: miningStatus?.totalStaked || '0', suffix: 'CZ', icon: <FiTrendingUp /> },
-    { label: '已分配奖励', value: miningStatus?.totalDistributed || '0', suffix: 'CZ', icon: <FiGift /> },
-    { label: '节点数量', value: miningStatus?.rankedNodeCount || 0, suffix: '个', icon: <FiUsers /> },
+    { label: t('cz.home.statStaked'), value: miningStatus?.totalStaked || '0', suffix: 'CZ', icon: <FiTrendingUp /> },
+    { label: t('cz.home.statDistributed'), value: miningStatus?.totalDistributed || '0', suffix: 'CZ', icon: <FiGift /> },
+    { label: t('cz.home.statNodes'), value: miningStatus?.rankedNodeCount || 0, suffix: t('cz.common.nodes'), icon: <FiUsers /> },
   ];
 
   const bands = [
-    { rank: '前 10 名', share: '50%', note: '核心节点池' },
-    { rank: '11-50 名', share: '30%', note: '攀登节点池' },
-    { rank: '51-100 名', share: '15%', note: '成长节点池' },
-    { rank: '100 名以后', share: '5%', note: '普惠节点池' },
+    { rank: t('cz.home.bandTop10'), share: '50%', note: t('cz.home.noteCore') },
+    { rank: t('cz.home.band11To50'), share: '30%', note: t('cz.home.noteClimb') },
+    { rank: t('cz.home.band51To100'), share: '15%', note: t('cz.home.noteGrowth') },
+    { rank: t('cz.home.bandAfter100'), share: '5%', note: t('cz.home.noteUniversal') },
   ];
 
   return (
@@ -34,27 +36,27 @@ export default function HomePage({ onPageChange, stakingData }) {
         >
           <div className="badge-glow mb-7">
             <FiCheckCircle className="w-4 h-4 mr-2" />
-            100% 分配 · 无截留 · 链上排名
+            {t('cz.home.badge')}
           </div>
 
           <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold leading-tight mb-6">
             <span className="text-white">Crypto Zenith</span>
             <br />
-            <span className="text-gradient-gold">链上巅峰</span>
+            <span className="text-gradient-gold">{t('cz.home.title2')}</span>
           </h1>
 
           <p className="text-lg sm:text-2xl text-white/65 leading-relaxed max-w-3xl mb-8">
-            中本聪给了我们数字黄金，CZ人生给了我们链上分红。
+            {t('cz.home.intro1')}
             <br />
-            每个人，都是自己加密人生的主角。来，一起登顶加密之巅。
+            {t('cz.home.intro2')}
           </p>
 
           <div className="flex flex-wrap gap-4">
             <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }} onClick={() => onPageChange('token-mining')} className="btn-premium">
-              <span className="flex items-center gap-2">查看节点排名 <FiArrowRight className="w-5 h-5" /></span>
+              <span className="flex items-center gap-2">{t('cz.home.viewRank')} <FiArrowRight className="w-5 h-5" /></span>
             </motion.button>
             <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }} onClick={() => onPageChange('referral')} className="btn-ghost">
-              <span className="flex items-center gap-2"><FiUsers className="w-5 h-5" /> 邀请好友</span>
+              <span className="flex items-center gap-2"><FiUsers className="w-5 h-5" /> {t('cz.home.inviteFriends')}</span>
             </motion.button>
           </div>
         </motion.div>
@@ -86,12 +88,12 @@ export default function HomePage({ onPageChange, stakingData }) {
           <div className="neon-card-inner h-full">
             <h2 className="text-2xl font-bold text-white mb-5 flex items-center gap-3">
               <FiZap className="text-[#FFB800]" />
-              CZ 人生节点机制
+              {t('cz.home.mechanismTitle')}
             </h2>
             <div className="space-y-4 text-white/65 leading-relaxed">
-              <p>你不需要质押，不需要申请节点。只要你的邀请人完成 CZ 质押，你就进入节点排名。</p>
-              <p>每一个有效邀请质押，奖励 1 CZ。每月释放池再按排名分段 100% 分配给所有节点。</p>
-              <p>排名越高，拿得越多。项目方不留一分，释放多少，分配多少。</p>
+              <p>{t('cz.home.mechanism1')}</p>
+              <p>{t('cz.home.mechanism2')}</p>
+              <p>{t('cz.home.mechanism3')}</p>
             </div>
           </div>
         </div>
@@ -99,7 +101,7 @@ export default function HomePage({ onPageChange, stakingData }) {
         <div className="glass-premium p-5 md:p-6">
           <h2 className="text-2xl font-bold text-white mb-5 flex items-center gap-3">
             <FiAward className="text-[#00D9A5]" />
-            月度释放分配
+            {t('cz.home.monthlyTitle')}
           </h2>
           <div className="grid sm:grid-cols-2 gap-4">
             {bands.map((band, index) => (

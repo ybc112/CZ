@@ -24,7 +24,7 @@ function Logo({ onClick }) {
           <span className="text-white">Crypto</span>
           <span className="text-[#FFB800]"> Zenith</span>
         </h1>
-        <p className="text-xs text-white/50 tracking-wide">链上巅峰 · CZ人生</p>
+        <p className="text-xs text-white/50 tracking-wide">{useLanguage().t('header.tagline')}</p>
       </div>
     </motion.div>
   );
@@ -74,7 +74,7 @@ export default function Header({ account, isConnecting, isCorrectNetwork, onConn
                 rel="noopener noreferrer"
                 className="flex items-center gap-1.5 nav-link"
               >
-                白皮书
+                {t('header.whitepaper')}
               </a>
               <a
                 href="https://t.me/CZRSBNB"
@@ -82,7 +82,7 @@ export default function Header({ account, isConnecting, isCorrectNetwork, onConn
                 rel="noopener noreferrer"
                 className="flex items-center gap-1.5 nav-link"
               >
-                CZ人生频道
+                {t('header.telegram')}
               </a>
             </nav>
 
@@ -179,7 +179,7 @@ export default function Header({ account, isConnecting, isCorrectNetwork, onConn
                 className="w-full text-left flex items-center gap-2 nav-link"
                 onClick={() => setMobileMenuOpen(false)}
               >
-                白皮书
+                {t('header.whitepaper')}
               </a>
               <a
                 href="https://t.me/CZRSBNB"
@@ -188,7 +188,7 @@ export default function Header({ account, isConnecting, isCorrectNetwork, onConn
                 className="w-full text-left flex items-center gap-2 nav-link"
                 onClick={() => setMobileMenuOpen(false)}
               >
-                CZ人生频道
+                {t('header.telegram')}
               </a>
               {account && (
                 <div className="pt-3 mt-3 border-t border-white/5">

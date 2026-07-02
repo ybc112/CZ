@@ -4,6 +4,7 @@ import { ethers } from 'ethers';
 import toast from 'react-hot-toast';
 import { FiAward, FiCheck, FiCopy, FiExternalLink, FiGift, FiRefreshCw, FiShare2, FiUserPlus, FiUsers } from 'react-icons/fi';
 import { CONTRACTS, formatAddress, formatNumber, getExplorerAddressUrl, parseContractError } from '../utils/constants';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const PAGE_SIZE = 20;
 
@@ -14,6 +15,7 @@ export default function ReferralPage({
   contracts,
   onRefresh,
 }) {
+  const { t } = useLanguage();
   const userInfo = stakingData?.userInfo;
   const feeAmount = stakingData?.interactionFeeConfig?.fee || '0.4';
   const needsFeeApproval = parseFloat(feeAllowance || '0') < parseFloat(feeAmount || '0');
@@ -33,10 +35,10 @@ export default function ReferralPage({
     try {
       await navigator.clipboard.writeText(link);
       setCopied(true);
-      toast.success('推荐链接已复制');
+      toast.success(t('cz.toast.linkCopied'));
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast.error(`复制失败，请手动复制: ${link}`);
+      toast.error(`${t('cz.toast.copyFailed')} ${link}`);
     }
   };
 
@@ -45,9 +47,9 @@ export default function ReferralPage({
     setIsApprovingFee(true);
     try {
       const tx = await contracts.writeFeeToken.approve(CONTRACTS.STAKING_BANK, ethers.MaxUint256);
-      toast.loading('正在授权 0.4U 交互费...', { id: 'approveFeeRef' });
+      toast.loading(t('cz.toast.approveFee'), { id: 'approveFeeRef' });
       await tx.wait();
-      toast.success('交互费授权成功', { id: 'approveFeeRef' });
+      toast.success(t('cz.toast.approveFeeSuccess'), { id: 'approveFeeRef' });
       onRefresh?.();
     } catch (err) {
       toast.error(parseContractError(err), { id: 'approveFeeRef' });
@@ -61,9 +63,9 @@ export default function ReferralPage({
     setIsClaiming(true);
     try {
       const tx = await contracts.writeStakingBank.claimNodeRewards();
-      toast.loading('领取节点收益中...', { id: 'claimRefPage' });
+      toast.loading(t('cz.toast.claiming'), { id: 'claimRefPage' });
       await tx.wait();
-      toast.success('节点收益已领取', { id: 'claimRefPage' });
+      toast.success(t('cz.toast.claimSuccess'), { id: 'claimRefPage' });
       onRefresh?.();
     } catch (err) {
       toast.error(parseContractError(err), { id: 'claimRefPage' });
@@ -102,22 +104,22 @@ export default function ReferralPage({
         <div className="relative p-5 sm:p-8 flex flex-col md:flex-row md:items-center gap-6">
           <img src="/cz-logo.png" alt="CZ" className="w-20 h-20 rounded-full object-cover shadow-lg shadow-[#FFB800]/30" />
           <div className="flex-1">
-            <h1 className="text-2xl sm:text-4xl font-bold text-white">邀请即节点</h1>
-            <p className="text-white/55 mt-2">你不需要质押、不需要申请。只要邀请用户质押 CZ，你的节点排名就会更新。</p>
+            <h1 className="text-2xl sm:text-4xl font-bold text-white">{t('cz.referral.title')}</h1>
+            <p className="text-white/55 mt-2">{t('cz.referral.subtitle')}</p>
           </div>
           <button onClick={copyReferralLink} disabled={!account} className="btn-premium flex items-center justify-center gap-2 disabled:opacity-50">
             {copied ? <FiCheck className="w-5 h-5" /> : <FiCopy className="w-5 h-5" />}
-            <span>{copied ? '已复制' : '复制专属链接'}</span>
+            <span>{copied ? t('cz.common.copied') : t('cz.common.copyExclusiveLink')}</span>
           </button>
         </div>
       </section>
 
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: '我的排名', value: userInfo?.rank ? `#${userInfo.rank}` : '-', suffix: '', icon: <FiAward /> },
-          { label: '有效邀请', value: userInfo?.directReferrals || 0, suffix: '人', icon: <FiUserPlus /> },
-          { label: '邀请质押量', value: userInfo?.referralStakeVolume || 0, suffix: 'CZ', icon: <FiUsers /> },
-          { label: '待领取收益', value: userInfo?.pendingRewards || 0, suffix: 'CZ', icon: <FiGift /> },
+          { label: t('cz.referral.myRank'), value: userInfo?.rank ? `#${userInfo.rank}` : '-', suffix: '', icon: <FiAward /> },
+          { label: t('cz.referral.directInvites'), value: userInfo?.directReferrals || 0, suffix: t('cz.common.person'), icon: <FiUserPlus /> },
+          { label: t('cz.referral.referralVolume'), value: userInfo?.referralStakeVolume || 0, suffix: 'CZ', icon: <FiUsers /> },
+          { label: t('cz.referral.pendingRewards'), value: userInfo?.pendingRewards || 0, suffix: 'CZ', icon: <FiGift /> },
         ].map((stat) => (
           <div key={stat.label} className="stat-card-premium">
             <div className="flex items-center gap-2 text-[#FFB800] mb-3">
@@ -137,20 +139,20 @@ export default function ReferralPage({
           <div className="neon-card-inner">
             <h2 className="text-xl font-bold mb-5 flex items-center gap-2">
               <FiShare2 className="text-[#00D9A5]" />
-              节点收益
+              {t('cz.referral.nodeRewards')}
             </h2>
 
             <div className="space-y-3 mb-5">
               <div className="p-4 rounded-xl bg-white/5 border border-white/5 flex justify-between">
-                <span className="text-white/50">邀请奖励待领</span>
+                <span className="text-white/50">{t('cz.referral.invitePending')}</span>
                 <span className="text-[#00D9A5] font-bold">{formatNumber(userInfo?.pendingInviteRewards, 4)} CZ</span>
               </div>
               <div className="p-4 rounded-xl bg-white/5 border border-white/5 flex justify-between">
-                <span className="text-white/50">排名分红待领</span>
+                <span className="text-white/50">{t('cz.referral.rankPending')}</span>
                 <span className="text-[#FFB800] font-bold">{formatNumber(userInfo?.pendingRankRewards, 4)} CZ</span>
               </div>
               <div className="p-4 rounded-xl bg-white/5 border border-white/5 flex justify-between">
-                <span className="text-white/50">累计已领</span>
+                <span className="text-white/50">{t('cz.referral.totalClaimed')}</span>
                 <span className="text-white font-bold">{formatNumber(userInfo?.totalClaimed, 4)} CZ</span>
               </div>
             </div>
@@ -160,7 +162,7 @@ export default function ReferralPage({
               disabled={!account || isApprovingFee || isClaiming || (!needsFeeApproval && parseFloat(userInfo?.pendingRewards || '0') <= 0)}
               className="w-full btn-premium disabled:opacity-50"
             >
-              <span>{needsFeeApproval ? '授权 0.4U 交互费' : isClaiming ? '领取中...' : '领取节点收益'}</span>
+              <span>{needsFeeApproval ? t('cz.referral.approveFee') : isClaiming ? t('cz.referral.claiming') : t('cz.referral.claimRewards')}</span>
             </button>
           </div>
         </motion.div>
@@ -169,8 +171,8 @@ export default function ReferralPage({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
             <h2 className="text-xl font-bold flex items-center gap-2 text-white">
               <FiUsers className="text-[#00D9A5]" />
-              我的邀请列表
-              <span className="text-sm font-normal text-white/40">共 {total} 人</span>
+              {t('cz.referral.myInvites')}
+              <span className="text-sm font-normal text-white/40">{t('cz.referral.totalPrefix')} {total} {t('cz.common.person')}</span>
             </h2>
             <button
               onClick={() => {
@@ -181,12 +183,12 @@ export default function ReferralPage({
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/10 text-white/70 hover:bg-white/20 disabled:opacity-50"
             >
               <FiRefreshCw className={`w-4 h-4 ${loadingReferrals ? 'animate-spin' : ''}`} />
-              刷新
+              {t('cz.common.refresh')}
             </button>
           </div>
 
           {referrals.length === 0 ? (
-            <div className="text-center py-12 text-white/40">暂无邀请成员</div>
+            <div className="text-center py-12 text-white/40">{t('cz.referral.noInvites')}</div>
           ) : (
             <div className="space-y-2">
               {referrals.map((address, index) => (
@@ -198,7 +200,7 @@ export default function ReferralPage({
                     <span className="font-mono text-white truncate">{formatAddress(address)}</span>
                   </div>
                   <a href={getExplorerAddressUrl(address)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[#00D9A5] flex-shrink-0">
-                    <span className="text-sm hidden sm:inline">查看</span>
+                    <span className="text-sm hidden sm:inline">{t('cz.common.view')}</span>
                     <FiExternalLink className="w-4 h-4" />
                   </a>
                 </div>
@@ -208,7 +210,7 @@ export default function ReferralPage({
 
           {referrals.length < total && (
             <button onClick={() => loadReferrals(false)} disabled={loadingReferrals} className="w-full mt-4 py-3 rounded-xl bg-white/5 text-white/60 hover:bg-white/10 disabled:opacity-50">
-              {loadingReferrals ? '加载中...' : '加载更多'}
+              {loadingReferrals ? t('cz.common.loadingMore') : t('cz.common.loadMore')}
             </button>
           )}
         </motion.div>
