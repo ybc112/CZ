@@ -1,11 +1,28 @@
-export const CONTRACTS = {
-  NBT_TOKEN: import.meta.env.VITE_NBT_TOKEN || '0xD0F2A86C7EbCeE887F5bFB86771f994CD142bD04',
-  STAKING_BANK: import.meta.env.VITE_STAKING_BANK || '',
-  NBT_PAIR: import.meta.env.VITE_NBT_PAIR || '',
-  FEE_TOKEN: import.meta.env.VITE_FEE_TOKEN || '0x55d398326f99059fF775485246999027B3197955',
+const TESTNET_CONTRACTS = {
+  NBT_TOKEN: '0x99fbDdb26bc6b10DC9df80d6c6D943812047f406',
+  STAKING_BANK: '0xB110ea48824383BAbeDE6ba7E19d5E01089De6cc',
+  FEE_TOKEN: '0x99fbDdb26bc6b10DC9df80d6c6D943812047f406',
 };
 
-const configuredChainId = (import.meta.env.VITE_CHAIN_ID || '0x38').toLowerCase();
+const OLD_MAINNET_TOKEN = '0xd0f2a86c7ebcee887f5bfb86771f994cd142bd04';
+
+const rawTokenAddress = import.meta.env.VITE_NBT_TOKEN || '';
+const hasStaleMainnetToken = rawTokenAddress.toLowerCase() === OLD_MAINNET_TOKEN;
+const configuredChainId = (hasStaleMainnetToken ? '0x61' : (import.meta.env.VITE_CHAIN_ID || '0x61')).toLowerCase();
+const isTestnet = configuredChainId !== '0x38';
+
+const testnetSafeAddress = (value, fallback) => {
+  if (!value) return fallback;
+  if (isTestnet && value.toLowerCase() === OLD_MAINNET_TOKEN) return fallback;
+  return value;
+};
+
+export const CONTRACTS = {
+  NBT_TOKEN: testnetSafeAddress(import.meta.env.VITE_NBT_TOKEN, TESTNET_CONTRACTS.NBT_TOKEN),
+  STAKING_BANK: testnetSafeAddress(import.meta.env.VITE_STAKING_BANK, TESTNET_CONTRACTS.STAKING_BANK),
+  NBT_PAIR: import.meta.env.VITE_NBT_PAIR || '',
+  FEE_TOKEN: testnetSafeAddress(import.meta.env.VITE_FEE_TOKEN, TESTNET_CONTRACTS.FEE_TOKEN),
+};
 
 export const NETWORKS = {
   BSC_TESTNET: {
