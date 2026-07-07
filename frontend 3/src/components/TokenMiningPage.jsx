@@ -48,6 +48,7 @@ export default function TokenMiningPage({
   const { t } = useLanguage();
   const [stakeAmount, setStakeAmount] = useState('');
   const [referrerInput, setReferrerInput] = useState(() => localStorage.getItem('referrer') || '');
+  const [showReferrerEdit, setShowReferrerEdit] = useState(false);
   const [isApprovingStake, setIsApprovingStake] = useState(false);
   const [isApprovingFee, setIsApprovingFee] = useState(false);
   const [isStaking, setIsStaking] = useState(false);
@@ -55,6 +56,7 @@ export default function TokenMiningPage({
   const [withdrawingStakeId, setWithdrawingStakeId] = useState(null);
   const [isClaiming, setIsClaiming] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [manualCopyLink, setManualCopyLink] = useState(null);
 
   const userInfo = stakingData?.userInfo;
   const miningStatus = stakingData?.miningStatus;
@@ -80,10 +82,19 @@ export default function TokenMiningPage({
   ];
 
   const selectedReferrer = useMemo(() => {
-    if (hasReferrer) return ZERO;
-    if (referrerInput && ethers.isAddress(referrerInput)) return referrerInput;
+    if (hasReferrer) return userInfo.referrer;
+    if (referrerInput && ethers.isAddress(referrerInput)) {
+      if (referrerInput.toLowerCase() === (account || '').toLowerCase()) return ZERO;
+      return referrerInput;
+    }
     return ZERO;
-  }, [hasReferrer, referrerInput]);
+  }, [hasReferrer, userInfo?.referrer, referrerInput, account]);
+
+  const referrerFromStorage = useMemo(() => {
+    const saved = localStorage.getItem('referrer');
+    return saved && ethers.isAddress(saved) ? saved : '';
+  }, []);
+  const hasAutoFilledReferrer = Boolean(referrerFromStorage) && !showReferrerEdit;
 
   const ensureNetwork = async () => {
     const currentChainId = await getWalletChainId();
@@ -144,6 +155,10 @@ export default function TokenMiningPage({
     }
     if (amountNumber > parseFloat(tokenBalance || '0')) {
       toast.error(t('cz.toast.insufficientCz'));
+      return;
+    }
+    if (!hasReferrer && referrerInput && referrerInput.toLowerCase() === (account || '').toLowerCase()) {
+      toast.error(t('cz.node.referrerSelfWarn'));
       return;
     }
     setIsStaking(true);
@@ -233,17 +248,52 @@ export default function TokenMiningPage({
     }
   };
 
+  const fallbackCopy = (text) => {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.top = '0';
+      ta.style.left = '0';
+      ta.style.width = '1px';
+      ta.style.height = '1px';
+      ta.style.opacity = '0';
+      ta.style.pointerEvents = 'none';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      ta.setSelectionRange(0, ta.value.length);
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch {
+      return false;
+    }
+  };
+
   const copyReferralLink = async () => {
     if (!account) return;
     const link = `${window.location.origin}?ref=${account}`;
-    try {
-      await navigator.clipboard.writeText(link);
+
+    let success = false;
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(link);
+        success = true;
+      } catch {
+        success = false;
+      }
+    }
+    if (!success) success = fallbackCopy(link);
+
+    if (success) {
       setCopied(true);
       toast.success(t('cz.toast.linkCopied'));
       setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast.error(`${t('cz.toast.copyFailed')} ${link}`);
+      return;
     }
+    setManualCopyLink(link);
   };
 
   const stats = [
@@ -290,13 +340,47 @@ export default function TokenMiningPage({
           </h2>
 
           <div className="space-y-4">
-            {!hasReferrer && (
-              <input
-                value={referrerInput}
-                onChange={(e) => setReferrerInput(e.target.value)}
-                placeholder={t('cz.node.referrerPlaceholder')}
-                className="input-premium font-mono text-sm"
-              />
+            {!hasReferrer ? (
+              hasAutoFilledReferrer && !showReferrerEdit ? (
+                <div className="rounded-xl border border-[#00D9A5]/30 bg-[#00D9A5]/10 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-xs text-[#00D9A5]">{t('cz.node.referrerAutoFilled')}</div>
+                      <div className="font-mono text-sm text-white truncate">{formatAddress(referrerInput)}</div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => setShowReferrerEdit(true)}
+                        className="px-3 py-1.5 rounded-lg bg-white/10 text-xs text-white hover:bg-white/20"
+                      >
+                        {t('cz.node.referrerChange')}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setReferrerInput('');
+                          localStorage.removeItem('referrer');
+                          setShowReferrerEdit(false);
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-white/10 text-xs text-white hover:bg-white/20"
+                      >
+                        {t('cz.node.referrerClear')}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <input
+                  value={referrerInput}
+                  onChange={(e) => setReferrerInput(e.target.value)}
+                  placeholder={t('cz.node.referrerPlaceholder')}
+                  className="input-premium font-mono text-sm"
+                />
+              )
+            ) : (
+              <div className="rounded-xl border border-[#FFB800]/30 bg-[#FFB800]/10 p-3">
+                <div className="text-xs text-[#FFB800]">{t('cz.node.referrerBound')}</div>
+                <div className="font-mono text-sm text-white">{formatAddress(userInfo.referrer)}</div>
+              </div>
             )}
 
             <div>
@@ -356,6 +440,35 @@ export default function TokenMiningPage({
           </div>
         </motion.div>
       </section>
+
+      {manualCopyLink && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+          onClick={() => setManualCopyLink(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-[#111827] border border-white/10 p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-bold text-white mb-1">{t('cz.toast.manualCopyTitle')}</h3>
+            <p className="text-sm text-white/55 mb-4">{t('cz.toast.manualCopyHint')}</p>
+            <div
+              className="break-all rounded-xl bg-white/5 border border-white/10 p-3 text-[#00D9A5] text-sm font-mono select-all"
+              style={{ WebkitUserSelect: 'all', userSelect: 'all' }}
+            >
+              {manualCopyLink}
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => setManualCopyLink(null)}
+                className="px-4 py-2 rounded-lg bg-white/10 text-white hover:bg-white/20"
+              >
+                {t('cz.toast.manualCopyClose')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat) => (
