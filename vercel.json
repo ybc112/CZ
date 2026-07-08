@@ -1,0 +1,10 @@
+{
+  "installCommand": "npm --prefix \"frontend 3\" install",
+  "buildCommand": "npm --prefix \"frontend 3\" run build",
+  "outputDirectory": "frontend 3/dist",
+  "routes": [
+    { "src": "/api/(.*)", "dest": "http://36.151.145.15/cz-api/$1" },
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ]
+}
