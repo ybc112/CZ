@@ -1,24 +1,27 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { CURRENT_NETWORK, EXPECTED_CHAIN_ID } from '../utils/constants';
 
-// 创建默认的只读 Provider（用于未连接钱包时读取链上数据）
-// 依次尝试多个 RPC，直到有一个成功，避免单个节点被墙导致全站不可用
 const createDefaultProvider = async () => {
-  const rpcUrls = CURRENT_NETWORK.rpcUrls;
+  const proxyRpcUrl = typeof window !== 'undefined' && import.meta.env.PROD
+    ? `${window.location.origin}/api/rpc`
+    : null;
+  const rpcUrls = proxyRpcUrl
+    ? [proxyRpcUrl, ...CURRENT_NETWORK.rpcUrls]
+    : CURRENT_NETWORK.rpcUrls;
   const errors = [];
+
   for (const url of rpcUrls) {
     try {
       const provider = new ethers.JsonRpcProvider(url);
-      // 用 getNetwork 做快速连通性测试
       await provider.getNetwork();
       return provider;
     } catch (err) {
       errors.push(`${url}: ${err?.message || err}`);
     }
   }
+
   console.error('All RPC nodes failed:', errors);
-  // 兜底：返回第一个，让上层有对象可用，但后续调用会继续失败并给出提示
   return new ethers.JsonRpcProvider(rpcUrls[0]);
 };
 
@@ -49,34 +52,31 @@ export function useWallet() {
   const [signer, setSigner] = useState(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState(null);
-
   const [defaultProvider, setDefaultProvider] = useState(null);
   const [providerError, setProviderError] = useState(null);
 
-  // 初始化默认只读 Provider，带错误提示
   useEffect(() => {
     let cancelled = false;
     createDefaultProvider()
-      .then((p) => {
+      .then((provider) => {
         if (!cancelled) {
-          setDefaultProvider(p);
+          setDefaultProvider(provider);
           setProviderError(null);
         }
       })
       .catch((err) => {
         if (!cancelled) {
           console.error('Failed to initialize default provider:', err);
-          setProviderError('无法连接到 BSC 节点，请检查网络或开启 VPN');
+          setProviderError('无法连接到 BSC 节点，请检查网络或稍后重试');
         }
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  // 读数据优先使用钱包自带的 Provider（MetaMask/TP/BitKeep 的 RPC 通常更稳定），
-  // 没连钱包时才用默认的只读 Provider。
   const provider = walletProvider || defaultProvider;
 
-  // 断开连接
   const disconnect = useCallback(() => {
     setAccount(null);
     setChainId(null);
@@ -109,7 +109,6 @@ export function useWallet() {
 
   const isCorrectNetwork = !account || chainId === EXPECTED_CHAIN_ID;
 
-  // 检查钱包是否已连接
   const checkConnection = useCallback(async () => {
     if (!getInjectedProvider()) return;
 
@@ -120,7 +119,6 @@ export function useWallet() {
     }
   }, [refreshWalletState]);
 
-  // 连接钱包
   const connect = useCallback(async () => {
     const injectedProvider = getInjectedProvider();
     if (!injectedProvider) {
@@ -157,7 +155,6 @@ export function useWallet() {
     }
   }, []);
 
-  // 切换网络
   const switchNetwork = useCallback(async () => {
     const injectedProvider = getInjectedProvider();
     if (!injectedProvider) {
@@ -172,7 +169,6 @@ export function useWallet() {
       });
       await refreshWalletState();
     } catch (switchError) {
-      // 如果网络不存在，添加网络
       if (switchError.code === 4902) {
         try {
           await injectedProvider.request({
@@ -180,7 +176,7 @@ export function useWallet() {
             params: [CURRENT_NETWORK],
           });
           await refreshWalletState();
-        } catch (addError) {
+        } catch {
           setError('添加网络失败');
         }
       } else {
@@ -189,7 +185,6 @@ export function useWallet() {
     }
   }, [refreshWalletState]);
 
-  // 监听账户和网络变化
   useEffect(() => {
     const injectedProvider = getInjectedProvider();
     if (!injectedProvider) return;
@@ -198,8 +193,8 @@ export function useWallet() {
       refreshWalletState().catch((err) => console.error('Refresh wallet after account change error:', err));
     };
 
-    const handleChainChanged = (chainId) => {
-      setChainId(parseChainId(chainId));
+    const handleChainChanged = (nextChainId) => {
+      setChainId(parseChainId(nextChainId));
       refreshWalletState().catch((err) => console.error('Refresh wallet after chain change error:', err));
     };
 

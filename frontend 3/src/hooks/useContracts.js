@@ -23,6 +23,45 @@ const safeRead = async (fn, fallback) => {
   }
 };
 
+const fetchStakingSnapshot = async (account, refresh = false) => {
+  const params = new URLSearchParams();
+  if (account) params.set('account', account);
+  if (refresh) params.set('refresh', '1');
+  const query = params.toString();
+  const response = await fetch(`/api/staking${query ? `?${query}` : ''}`, {
+    cache: 'no-store',
+    headers: { Accept: 'application/json' },
+  });
+  const payload = await response.json();
+  if (!response.ok || !payload?.ok || !payload?.data) {
+    throw new Error(payload?.message || payload?.error || 'Staking cache API unavailable');
+  }
+  return payload.data;
+};
+
+const applyStakingSnapshot = (prev, snapshot) => ({
+  ...prev,
+  userInfo: snapshot.userInfo ?? null,
+  stakes: snapshot.stakes ?? [],
+  miningStatus: snapshot.miningStatus ?? prev.miningStatus,
+  pendingRewardAll: snapshot.pendingRewardAll ?? '0',
+  referrals: snapshot.referrals ?? [],
+  referralsTotal: snapshot.referralsTotal ?? 0,
+  rankedNodes: snapshot.rankedNodes ?? prev.rankedNodes,
+  rankedNodesTotal: snapshot.rankedNodesTotal ?? prev.rankedNodesTotal,
+  currentRelease: snapshot.currentRelease ?? prev.currentRelease,
+  interactionFeeConfig: snapshot.interactionFeeConfig ?? prev.interactionFeeConfig,
+  stakingTokenAddress: snapshot.stakingTokenAddress || prev.stakingTokenAddress,
+  rewardTokenAddress: snapshot.rewardTokenAddress || prev.rewardTokenAddress,
+  inviteReward: snapshot.inviteReward || prev.inviteReward,
+  minReferralStakeValue: snapshot.minReferralStakeValue || prev.minReferralStakeValue,
+  lockPeriod: snapshot.lockPeriod || prev.lockPeriod,
+  stakeValueRate: snapshot.stakeValueRate || prev.stakeValueRate,
+  isPaused: typeof snapshot.isPaused === 'boolean' ? snapshot.isPaused : prev.isPaused,
+  apiCache: snapshot.cache || null,
+  loading: false,
+});
+
 export function useContracts(signer, provider) {
   const [contracts, setContracts] = useState({
     nbtToken: null,
@@ -90,14 +129,23 @@ export function useStakingBank(contract, account) {
     loading: true,
   });
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (forceRefresh = false) => {
+
+    // 错误时保留上一次有效数据，避免 RPC 抖动导致界面全 0
+    setData(prev => ({ ...prev, loading: true }));
+
+    try {
+      const snapshot = await fetchStakingSnapshot(account, forceRefresh);
+      setData(prev => applyStakingSnapshot(prev, snapshot));
+      return;
+    } catch (apiError) {
+      console.warn('Staking cache API failed, falling back to direct contract reads:', apiError);
+    }
+
     if (!contract) {
       setData(prev => ({ ...prev, loading: false }));
       return;
     }
-
-    // 错误时保留上一次有效数据，避免 RPC 抖动导致界面全 0
-    setData(prev => ({ ...prev, loading: true }));
 
     try {
       const [
@@ -243,12 +291,12 @@ export function useStakingBank(contract, account) {
   }, [contract, account]);
 
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 15000);
+    fetchData(false);
+    const interval = setInterval(() => fetchData(false), 15000);
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  return { ...data, refetch: fetchData };
+  return { ...data, refetch: () => fetchData(true) };
 }
 
 export function useTokenBalance(tokenContract, account) {

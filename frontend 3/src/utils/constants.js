@@ -53,13 +53,12 @@ export const NETWORKS = {
     },
     // 优先使用中国大陆可访问的节点；官方节点保留为 fallback
     rpcUrls: [
-      'https://rpc.ankr.com/bsc',
-      'https://bscrpc.com',
+      'https://bsc.publicnode.com',
       'https://bsc-dataseed.binance.org/',
       'https://bsc-dataseed1.binance.org/',
       'https://bsc-dataseed2.binance.org/',
-      'https://bsc.publicnode.com',
       'https://bsc.blockpi.network/v1/rpc/public',
+      'https://rpc.ankr.com/bsc',
     ],
     blockExplorerUrls: ['https://bscscan.com'],
   },
