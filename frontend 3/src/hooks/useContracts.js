@@ -136,6 +136,17 @@ export function useStakingBank(contract, account) {
 
     try {
       const snapshot = await fetchStakingSnapshot(account, forceRefresh);
+      // 服务器返回的是旧缓存（RPC 全挂时的兜底数据）：自动带 refresh=1 重试一次，跳过缓存直接读链上
+      if (!forceRefresh && snapshot?.cache?.stale) {
+        console.warn('Staking API returned stale cache, retrying with refresh=1');
+        try {
+          const fresh = await fetchStakingSnapshot(account, true);
+          setData(prev => applyStakingSnapshot(prev, fresh));
+          return;
+        } catch (retryError) {
+          console.warn('Stale cache refresh failed, using stale snapshot:', retryError);
+        }
+      }
       setData(prev => applyStakingSnapshot(prev, snapshot));
       return;
     } catch (apiError) {

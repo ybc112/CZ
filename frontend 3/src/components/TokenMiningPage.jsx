@@ -300,7 +300,7 @@ export default function TokenMiningPage({
     { label: t('cz.node.statStaked'), value: miningStatus?.totalStaked || '0', suffix: 'CZ', icon: <FiLayers /> },
     { label: t('cz.node.statDistributed'), value: miningStatus?.totalDistributed || '0', suffix: 'CZ', icon: <FiGift /> },
     { label: t('cz.node.statNodeCount'), value: miningStatus?.rankedNodeCount || 0, suffix: t('cz.common.nodes'), icon: <FiUsers /> },
-    { label: t('cz.node.myRank'), value: userInfo?.rank ? `#${userInfo.rank}` : '-', suffix: '', icon: <FiAward /> },
+    { label: t('cz.node.myRank'), value: userInfo ? (userInfo.rank ? `#${userInfo.rank}` : t('cz.node.noRank')) : '-', suffix: '', icon: <FiAward /> },
   ];
 
   return (
@@ -536,24 +536,33 @@ export default function TokenMiningPage({
             <FiTrendingUp className="text-[#FFB800]" />
             {t('cz.node.leaderboard')}
           </h2>
+          {userInfo && !userInfo.rank && (
+            <div className="mb-4 p-3 rounded-xl bg-[#FFB800]/10 border border-[#FFB800]/25 text-xs text-white/70 leading-relaxed">
+              {t('cz.node.rankHint')}
+            </div>
+          )}
           <div className="space-y-2 max-h-[430px] overflow-y-auto pr-1">
             {(stakingData?.rankedNodes || []).length === 0 ? (
               <div className="text-center py-12 text-white/35">{t('cz.node.noRank')}</div>
             ) : (
-              stakingData.rankedNodes.map((node) => (
-                <div key={node.address} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold ${node.rank <= 10 ? 'bg-[#FFB800] text-black' : 'bg-white/10 text-white/70'}`}>
-                      {node.rank}
+              stakingData.rankedNodes.map((node) => {
+                const isMe = account && node.address.toLowerCase() === account.toLowerCase();
+                return (
+                  <div key={node.address} className={`flex items-center justify-between p-3 rounded-xl border ${isMe ? 'border-[#FFB800]/50 bg-[#FFB800]/10' : 'bg-white/5 border-white/5'}`}>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold flex-shrink-0 ${node.rank <= 10 ? 'bg-[#FFB800] text-black' : 'bg-white/10 text-white/70'}`}>
+                        {node.rank}
+                      </div>
+                      <span className="font-mono text-white/75 truncate">{formatAddress(node.address)}</span>
+                      {isMe && <span className="text-[#FFB800] text-xs flex-shrink-0">{t('cz.common.me')}</span>}
                     </div>
-                    <span className="font-mono text-white/75 truncate">{formatAddress(node.address)}</span>
+                    <div className="text-right">
+                      <div className="text-sm font-semibold text-white">{formatNumber(node.score, 4)} U</div>
+                      <div className="text-xs text-white/35">{t('cz.node.referralVolume')}</div>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-sm font-semibold text-white">{formatNumber(node.score, 4)} U</div>
-                    <div className="text-xs text-white/35">{t('cz.node.referralVolume')}</div>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -572,7 +581,7 @@ export default function TokenMiningPage({
               stakingData.stakes.map((stake) => (
                 <div key={stake.stakeId} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-white/5 border border-white/10">
                   <div>
-                    <div className="text-white font-semibold">#{stake.stakeId} · {formatNumber(stake.amount, 4)} CZ</div>
+                    <div className="text-white font-semibold">{t('cz.node.stakeNo')} #{stake.stakeId + 1} · {formatNumber(stake.amount, 4)} CZ</div>
                     <div className="text-xs text-white/35 mt-1">{t('cz.node.stakeValue')} {formatNumber(stake.scoreValue, 4)} U · {t('cz.node.startTime')} {formatDateTime(stake.startTime)}</div>
                     <div className={`text-xs mt-1 ${stake.isUnlocked ? 'text-[#00D9A5]' : 'text-[#FFB800]'}`}>
                       {stake.isUnlocked ? '已解锁，可自由操作' : `15天质押中，解锁时间 ${formatDateTime(stake.unlockTime)}`}

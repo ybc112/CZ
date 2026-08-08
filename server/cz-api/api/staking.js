@@ -41,7 +41,8 @@ const cacheStore = globalThis.__czStakingCache || {
 globalThis.__czStakingCache = cacheStore;
 
 const CACHE_DIR = process.env.STAKING_CACHE_DIR || process.env.CACHE_DIR || '';
-const FILE_CACHE_MAX_AGE_MS = Number(process.env.STAKING_FILE_CACHE_MAX_AGE_MS || 24 * 60 * 60 * 1000);
+// 文件缓存仅在 RPC 全部失败时兜底使用，保留 10 分钟即可，避免排行榜等公共数据展示过旧快照
+const FILE_CACHE_MAX_AGE_MS = Number(process.env.STAKING_FILE_CACHE_MAX_AGE_MS || 10 * 60 * 1000);
 
 const cacheFilePath = (key) => {
   if (!CACHE_DIR) return '';
