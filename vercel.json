@@ -2,8 +2,11 @@
   "installCommand": "npm --prefix \"frontend 3\" install",
   "buildCommand": "npm --prefix \"frontend 3\" run build",
   "outputDirectory": "frontend 3/dist",
+  "functions": {
+    "api/staking.js": { "maxDuration": 30 },
+    "api/rpc.js": { "maxDuration": 30 }
+  },
   "routes": [
-    { "src": "/api/(.*)", "dest": "https://cz-api.kimi-vault.com/api/$1" },
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/index.html" }
   ]
