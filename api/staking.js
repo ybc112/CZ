@@ -280,23 +280,25 @@ const readWithProvider = async (provider, account, rpcUrl) => {
 };
 
 const readSnapshot = async (account) => {
-  // Vercel 函数最长 10s：整体 9s 超时，避免多节点串联超限
+  // Vercel 函数最长 10s：并发读取前 3 个节点（避免串行等待），整体 9s 超时兜底
   const deadline = new Promise((_, reject) => setTimeout(() => reject(new Error('staking read timeout')), 9000));
-  try {
-    const read = (async () => {
-      let lastError = null;
-      for (const url of rpcUrls()) {
-        try {
-          const provider = new ethers.JsonRpcProvider(url, 56, { staticNetwork: true, requestTimeout: 8000 });
-          return await readWithProvider(provider, account, url);
-        } catch (error) {
-          lastError = error;
-          console.warn(`staking api rpc failed: ${url}`, error?.shortMessage || error?.message || error);
-        }
+  const attempts = rpcUrls().slice(0, 3).map((url) =>
+    (async () => {
+      try {
+        const provider = new ethers.JsonRpcProvider(url, 56, { staticNetwork: true, requestTimeout: 8000 });
+        return { url, data: await readWithProvider(provider, account, url) };
+      } catch (error) {
+        console.warn(`staking api rpc failed: ${url}`, error?.shortMessage || error?.message || error);
+        return { url, error };
       }
-      throw lastError || new Error('All BSC RPC nodes failed');
-    })();
-    return await Promise.race([read, deadline]);
+    })()
+  );
+  try {
+    const settled = await Promise.race([Promise.all(attempts), deadline]);
+    const ok = settled.find((r) => r && r.data);
+    if (ok) return ok.data;
+    const errors = settled.map((r) => r?.error?.message || String(r?.error)).filter(Boolean);
+    throw new Error(errors.length ? errors.join(' | ') : 'All BSC RPC nodes failed');
   } finally {
     // 无需清理：函数进程生命周期即结束
   }
