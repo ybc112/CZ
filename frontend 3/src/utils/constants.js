@@ -19,6 +19,9 @@ const mainnetSafeAddress = (value, fallback) => {
   return value;
 };
 
+// 后端 API 地址：生产环境走 Cloudflare 隧道直达服务器（带缓存），开发环境走 Vite 代理
+export const API_BASE_URL = 'https://cz-api.kimi-vault.com';
+
 export const CONTRACTS = {
   NBT_TOKEN: mainnetSafeAddress(import.meta.env.VITE_NBT_TOKEN, MAINNET_CONTRACTS.NBT_TOKEN),
   STAKING_BANK: mainnetSafeAddress(import.meta.env.VITE_STAKING_BANK, MAINNET_CONTRACTS.STAKING_BANK),

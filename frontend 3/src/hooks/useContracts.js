@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
-import { CONTRACTS } from '../utils/constants';
+import { CONTRACTS, API_BASE_URL } from '../utils/constants';
 import { ERC20_ABI, NBT_TOKEN_ABI, STAKING_BANK_ABI } from '../abi';
 
 const retryCall = async (fn, retries = 3, delay = 1000) => {
@@ -28,7 +28,7 @@ const fetchStakingSnapshot = async (account, refresh = false) => {
   if (account) params.set('account', account);
   if (refresh) params.set('refresh', '1');
   const query = params.toString();
-  const response = await fetch(`/api/staking${query ? `?${query}` : ''}`, {
+  const response = await fetch(`${API_BASE_URL}/api/staking${query ? `?${query}` : ''}`, {
     cache: 'no-store',
     headers: { Accept: 'application/json' },
   });

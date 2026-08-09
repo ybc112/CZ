@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
-import { CURRENT_NETWORK, EXPECTED_CHAIN_ID } from '../utils/constants';
+import { CURRENT_NETWORK, EXPECTED_CHAIN_ID, API_BASE_URL } from '../utils/constants';
 
 const createDefaultProvider = async () => {
   const proxyRpcUrl = typeof window !== 'undefined' && import.meta.env.PROD
-    ? `${window.location.origin}/api/rpc`
+    ? `${API_BASE_URL}/api/rpc`
     : null;
   const rpcUrls = proxyRpcUrl
     ? [proxyRpcUrl, ...CURRENT_NETWORK.rpcUrls]
