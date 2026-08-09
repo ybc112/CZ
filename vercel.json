@@ -3,8 +3,8 @@
   "buildCommand": "npm --prefix \"frontend 3\" run build",
   "outputDirectory": "frontend 3/dist",
   "functions": {
-    "api/staking.js": { "maxDuration": 30 },
-    "api/rpc.js": { "maxDuration": 30 }
+    "api/staking.js": { "maxDuration": 10 },
+    "api/rpc.js": { "maxDuration": 10 }
   },
   "routes": [
     { "handle": "filesystem" },
