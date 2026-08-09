@@ -283,7 +283,7 @@ const readSnapshot = async (account) => {
   let lastError = null;
   for (const url of rpcUrls()) {
     try {
-      const provider = new ethers.JsonRpcProvider(url, 56, { staticNetwork: true });
+      const provider = new ethers.JsonRpcProvider(url, 56, { staticNetwork: true, requestTimeout: 8000 });
       return await readWithProvider(provider, account, url);
     } catch (error) {
       lastError = error;

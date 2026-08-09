@@ -280,17 +280,26 @@ const readWithProvider = async (provider, account, rpcUrl) => {
 };
 
 const readSnapshot = async (account) => {
-  let lastError = null;
-  for (const url of rpcUrls()) {
-    try {
-      const provider = new ethers.JsonRpcProvider(url, 56, { staticNetwork: true });
-      return await readWithProvider(provider, account, url);
-    } catch (error) {
-      lastError = error;
-      console.warn(`staking api rpc failed: ${url}`, error?.shortMessage || error?.message || error);
-    }
+  // Vercel 函数最长 10s：整体 9s 超时，避免多节点串联超限
+  const deadline = new Promise((_, reject) => setTimeout(() => reject(new Error('staking read timeout')), 9000));
+  try {
+    const read = (async () => {
+      let lastError = null;
+      for (const url of rpcUrls()) {
+        try {
+          const provider = new ethers.JsonRpcProvider(url, 56, { staticNetwork: true, requestTimeout: 8000 });
+          return await readWithProvider(provider, account, url);
+        } catch (error) {
+          lastError = error;
+          console.warn(`staking api rpc failed: ${url}`, error?.shortMessage || error?.message || error);
+        }
+      }
+      throw lastError || new Error('All BSC RPC nodes failed');
+    })();
+    return await Promise.race([read, deadline]);
+  } finally {
+    // 无需清理：函数进程生命周期即结束
   }
-  throw lastError || new Error('All BSC RPC nodes failed');
 };
 
 const getCachedSnapshot = async (account, refresh) => {
