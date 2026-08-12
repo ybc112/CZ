@@ -30,7 +30,7 @@ function Logo({ onClick }) {
   );
 }
 
-export default function Header({ account, isConnecting, isCorrectNetwork, onConnect, onSwitchNetwork, currentPage, onPageChange, isAdmin }) {
+export default function Header({ account, isConnecting, isCorrectNetwork, onConnect, onSwitchNetwork, currentPage, onPageChange, isAdmin, hasClaimableRewards }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { language, toggleLanguage, t } = useLanguage();
 
@@ -62,10 +62,16 @@ export default function Header({ account, isConnecting, isCorrectNetwork, onConn
                 <button
                   key={item.id}
                   onClick={() => onPageChange(item.id)}
-                  className={`flex items-center gap-1.5 ${currentPage === item.id ? 'nav-link-active' : 'nav-link'}`}
+                  className={`relative flex items-center gap-1.5 ${currentPage === item.id ? 'nav-link-active' : 'nav-link'}`}
                 >
                   {item.icon}
                   {item.label}
+                  {item.id === 'token-mining' && hasClaimableRewards && (
+                    <span className="absolute -top-0.5 -right-1 flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#FF6B6B] opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#FF6B6B]" />
+                    </span>
+                  )}
                 </button>
               ))}
               <a
@@ -166,10 +172,16 @@ export default function Header({ account, isConnecting, isCorrectNetwork, onConn
                     onPageChange(item.id);
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full text-left flex items-center gap-2 ${currentPage === item.id ? 'nav-link-active' : 'nav-link'}`}
+                  className={`relative w-full text-left flex items-center gap-2 ${currentPage === item.id ? 'nav-link-active' : 'nav-link'}`}
                 >
                   {item.icon}
                   {item.label}
+                  {item.id === 'token-mining' && hasClaimableRewards && (
+                    <span className="ml-1 flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#FF6B6B] opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-[#FF6B6B]" />
+                    </span>
+                  )}
                 </button>
               ))}
               <a

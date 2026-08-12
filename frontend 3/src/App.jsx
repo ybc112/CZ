@@ -52,6 +52,8 @@ function App() {
   );
   const feeConfig = stakingData?.interactionFeeConfig;
   const isNativeFee = feeConfig?.feeToken === ethers.ZeroAddress || !CONTRACTS.FEE_TOKEN;
+  // 有可领取的节点/邀请奖励时，导航栏显示红点
+  const hasClaimableRewards = parseFloat(stakingData?.userInfo?.pendingRewards || '0') > 0;
   const feeTxOptions = () => (
     isNativeFee && parseFloat(feeConfig?.fee || '0') > 0
       ? { value: ethers.parseEther(feeConfig.fee) }
@@ -353,6 +355,7 @@ function App() {
         currentPage={currentPage}
         onPageChange={setCurrentPage}
         isAdmin={isAdmin}
+        hasClaimableRewards={hasClaimableRewards}
       />
 
       <main className="min-h-screen pt-20 md:pt-28 pb-8 md:pb-12 px-3 sm:px-6 lg:px-8">

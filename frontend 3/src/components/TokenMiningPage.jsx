@@ -499,6 +499,18 @@ export default function TokenMiningPage({
               </button>
             </div>
 
+            {pendingRewardsNumber > 0 && (
+              <div className="mb-5 p-3 rounded-xl bg-[#FF6B6B]/10 border border-[#FF6B6B]/40 flex items-center gap-2.5 animate-pulse">
+                <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#FF6B6B] opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#FF6B6B]" />
+                </span>
+                <span className="text-sm text-[#FF8A80] font-medium">
+                  {t('cz.node.claimableBanner').replace('{amount}', formatNumber(pendingRewardsAmount, 4))}
+                </span>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4 mb-5">
               <div className="p-4 rounded-xl bg-white/5 border border-white/5">
                 <div className="text-white/45 text-sm">{t('cz.node.referralVolume')}</div>
@@ -524,8 +536,16 @@ export default function TokenMiningPage({
             <button
               onClick={needsFeeApproval ? approveFeeToken : handleClaim}
               disabled={!account || isClaiming || isCompounding || (!needsFeeApproval && !(pendingRewardsNumber > 0))}
-              className="w-full btn-premium disabled:opacity-50"
+              className={`w-full btn-premium disabled:opacity-50 ${pendingRewardsNumber > 0 && !needsFeeApproval ? 'ring-2 ring-[#FF6B6B]/60' : ''}`}
             >
+              {pendingRewardsNumber > 0 && !needsFeeApproval && (
+                <span className="inline-flex items-center gap-2 mr-1">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
+                  </span>
+                </span>
+              )}
               <span>{needsFeeApproval ? t('cz.node.approveFeeFirst') : isClaiming ? t('cz.node.claiming') : t('cz.node.claimAll')}</span>
             </button>
           </div>
@@ -555,6 +575,11 @@ export default function TokenMiningPage({
                       </div>
                       <span className="font-mono text-white/75 truncate">{formatAddress(node.address)}</span>
                       {isMe && <span className="text-[#FFB800] text-xs flex-shrink-0">{t('cz.common.me')}</span>}
+                      {isMe && pendingRewardsNumber > 0 && (
+                        <span className="px-1.5 py-0.5 rounded-full bg-[#FF6B6B] text-white text-[10px] font-semibold flex-shrink-0 animate-pulse">
+                          {t('cz.node.claimableBadge')}
+                        </span>
+                      )}
                     </div>
                     <div className="text-right">
                       <div className="text-sm font-semibold text-white">{formatNumber(node.score, 4)} U</div>
