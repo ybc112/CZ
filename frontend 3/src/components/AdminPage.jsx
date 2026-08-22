@@ -8,7 +8,6 @@ import { useLanguage } from '../contexts/LanguageContext';
 export default function AdminPage({ account, contracts, stakingData, onRefresh }) {
   const { t } = useLanguage();
   const [releaseAmount, setReleaseAmount] = useState('');
-  const [allocateCount, setAllocateCount] = useState('100');
   const [inviteReward, setInviteReward] = useState('');
   const [stakeValueRate, setStakeValueRate] = useState('');
   const [isWorking, setIsWorking] = useState(false);
@@ -44,14 +43,14 @@ export default function AdminPage({ account, contracts, stakingData, onRefresh }
   };
 
   const openRelease = async () => {
-    if (!isReady || !releaseAmount) return;
+    if (!isReady) return;
     setIsWorking(true);
     try {
-      const tx = await contracts.writeStakingBank.openMonthlyRelease(ethers.parseEther(releaseAmount));
+      // V3：开启新结算周期（无参数）
+      const tx = await contracts.writeStakingBank.openEpoch();
       toast.loading(t('cz.toast.openRelease'), { id: 'openRelease' });
       await tx.wait();
       toast.success(t('cz.toast.openReleaseSuccess'), { id: 'openRelease' });
-      setReleaseAmount('');
       onRefresh?.();
     } catch (err) {
       toast.error(parseContractError(err), { id: 'openRelease' });
@@ -60,17 +59,36 @@ export default function AdminPage({ account, contracts, stakingData, onRefresh }
     }
   };
 
-  const allocateRelease = async () => {
+  const fundEpoch = async () => {
+    if (!isReady || !releaseAmount) return;
+    setIsWorking(true);
+    try {
+      // V3：向当前结算周期注资
+      const tx = await contracts.writeStakingBank.fundEpoch(ethers.parseEther(releaseAmount));
+      toast.loading(t('cz.toast.approveRelease'), { id: 'fundEpoch' });
+      await tx.wait();
+      toast.success(t('cz.toast.openReleaseSuccess'), { id: 'fundEpoch' });
+      setReleaseAmount('');
+      onRefresh?.();
+    } catch (err) {
+      toast.error(parseContractError(err), { id: 'fundEpoch' });
+    } finally {
+      setIsWorking(false);
+    }
+  };
+
+  const settleEpoch = async () => {
     if (!isReady) return;
     setIsWorking(true);
     try {
-      const tx = await contracts.writeStakingBank.allocateMonthlyRelease(Number(allocateCount || 100));
-      toast.loading(t('cz.toast.allocateRelease'), { id: 'allocateRelease' });
+      // V3：结算当前周期，未领奖励滚入下期
+      const tx = await contracts.writeStakingBank.settleEpoch();
+      toast.loading(t('cz.toast.allocateRelease'), { id: 'settleEpoch' });
       await tx.wait();
-      toast.success(t('cz.toast.allocateReleaseSuccess'), { id: 'allocateRelease' });
+      toast.success(t('cz.toast.allocateReleaseSuccess'), { id: 'settleEpoch' });
       onRefresh?.();
     } catch (err) {
-      toast.error(parseContractError(err), { id: 'allocateRelease' });
+      toast.error(parseContractError(err), { id: 'settleEpoch' });
     } finally {
       setIsWorking(false);
     }
@@ -171,24 +189,25 @@ export default function AdminPage({ account, contracts, stakingData, onRefresh }
             </div>
             <div className="grid sm:grid-cols-2 gap-3 mb-4">
               <input className="input-premium" value={releaseAmount} onChange={(e) => setReleaseAmount(e.target.value)} placeholder={t('cz.admin.releasePlaceholder')} />
-              <input className="input-premium" value={allocateCount} onChange={(e) => setAllocateCount(e.target.value)} placeholder={t('cz.admin.batchPlaceholder')} />
             </div>
             <div className="grid sm:grid-cols-2 gap-3">
               <button onClick={approveRewardToken} disabled={isWorking || !releaseAmount} className="btn-ghost disabled:opacity-50">{t('cz.admin.approveRelease')}</button>
-              <button onClick={openRelease} disabled={isWorking || !releaseAmount} className="btn-premium disabled:opacity-50"><span>{t('cz.admin.openRelease')}</span></button>
+              <button onClick={fundEpoch} disabled={isWorking || !releaseAmount} className="btn-premium disabled:opacity-50"><span>{t('cz.admin.fundEpoch')}</span></button>
+            </div>
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              <button onClick={openRelease} disabled={isWorking} className="btn-ghost disabled:opacity-50">{t('cz.admin.openEpoch')}</button>
+              <button onClick={settleEpoch} disabled={isWorking} className="btn-ghost disabled:opacity-50">{t('cz.admin.settleEpoch')}</button>
             </div>
 
             {currentRelease && Number(currentRelease.epochId) > 0 && (
               <div className="mt-5 p-4 rounded-xl bg-white/5 border border-white/10">
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div><span className="text-white/40">Epoch</span><div className="font-bold text-white">#{currentRelease.epochId}</div></div>
-                  <div><span className="text-white/40">{t('cz.common.status')}</span><div className="font-bold text-white">{currentRelease.finalized ? t('cz.common.completed') : t('cz.common.allocating')}</div></div>
-                  <div><span className="text-white/40">{t('cz.admin.totalRelease')}</span><div className="font-bold text-white">{formatNumber(currentRelease.amount, 4)} CZ</div></div>
-                  <div><span className="text-white/40">{t('cz.admin.allocated')}</span><div className="font-bold text-white">{formatNumber(currentRelease.allocatedAmount, 4)} CZ</div></div>
+                  <div><span className="text-white/40">{t('cz.admin.epochState')}</span><div className="font-bold text-white">{currentRelease.settled || currentRelease.finalized ? t('cz.admin.epochSettled') : t('cz.admin.epochFunded')}</div></div>
+                  <div><span className="text-white/40">{t('cz.admin.poolAmount')}</span><div className="font-bold text-white">{formatNumber(currentRelease.amount, 4)} CZ</div></div>
+                  <div><span className="text-white/40">{t('cz.admin.nodeCount')}</span><div className="font-bold text-white">{formatNumber(currentRelease.totalNodes, 0)}</div></div>
                 </div>
-                <button onClick={allocateRelease} disabled={isWorking || currentRelease.finalized} className="w-full mt-4 btn-premium disabled:opacity-50">
-                  <span>{t('cz.admin.allocateNext')}</span>
-                </button>
+                <div className="mt-3 text-xs text-white/40">{t('cz.admin.epochCarryover')}</div>
               </div>
             )}
           </div>

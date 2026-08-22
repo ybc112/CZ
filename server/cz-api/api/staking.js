@@ -2,15 +2,14 @@ const fs = require('fs');
 const path = require('path');
 const { ethers } = require('ethers');
 
-const DEFAULT_STAKING_BANK = '0x903fcce5d67648FBE6Dccc9806e3bd7D303380fD';
-const DEFAULT_CZ_TOKEN = '0xD0F2A86C7EbCeE887F5bFB86771f994CD142bD04';
+const DEFAULT_STAKING_BANK = '0xA99A2b52eaEBA7219Fe5eBFe728A94F4e8536c46';
+const DEFAULT_CZ_TOKEN = '0xAE5aA8b20fd29f1CFbF94dcC221122f3ed36D75e';
+const DEFAULT_CHAIN_ID = 97;
 const DEFAULT_RPC_URLS = [
-  'https://bsc.publicnode.com',
-  'https://bsc-dataseed.binance.org/',
-  'https://bsc-dataseed1.binance.org/',
-  'https://bsc-dataseed2.binance.org/',
-  'https://bsc.blockpi.network/v1/rpc/public',
-  'https://rpc.ankr.com/bsc',
+  'https://bsc-testnet.bnbchain.org',
+  'https://bsc-testnet.publicnode.com',
+  'https://bsc-testnet.blockpi.network/v1/rpc/public',
+  'https://bsc-testnet.drpc.org',
 ];
 
 const STAKING_ABI = [
@@ -22,12 +21,13 @@ const STAKING_ABI = [
   'function LOCK_PERIOD() view returns (uint256)',
   'function paused() view returns (bool)',
   'function getMiningStatus() view returns (uint256 _totalStaked, uint256 _totalDistributed, uint256 _claimableRewards, bool _releaseInProgress, uint256 _startTime, uint256 _rankedNodeCount)',
-  'function getCurrentRelease() view returns (uint256 epochId, uint256 amount, uint256 totalNodes, uint256 nextRank, uint256 allocatedAmount, bool finalized)',
+  'function getCurrentRelease() view returns (uint256 epochId, uint256 poolAmount, uint256 totalNodes, uint256 totalClaimed, uint256 claimStart, uint256 claimEnd, bool settled, bool disabled)',
   'function getInteractionFeeConfig() view returns (address feeToken, uint256 fee, address receiverA, address receiverB)',
   'function getRankedNodes(uint256 offset, uint256 limit) view returns (address[] nodes, uint256[] scores, uint256 total)',
-  'function getUserInfo(address user) view returns (tuple(uint256 totalStaked, uint256 totalWithdrawn, uint256 stakeCount, uint256 activeStakeCount, address referrer, uint256 directReferrals, uint256 referralStakeVolume, uint256 pendingInviteRewards, uint256 totalInviteClaimed, uint256 pendingRankRewards, uint256 totalRankClaimed, uint256 lockedInviteRewards, uint256 inviteUnlockCursor) info, uint256 pendingRewards, uint256 totalClaimed, uint256 rank)',
+  'function getUserInfo(address user) view returns (tuple(uint256 totalStaked, uint256 totalWithdrawn, uint256 stakeCount, uint256 activeStakeCount, address referrer, uint256 directReferrals, uint256 referralStakeVolume, uint256 personalStakeVolume, uint256 pendingInviteRewards, uint256 totalInviteClaimed, uint256 lockedInviteRewards, uint256 inviteUnlockCursor) info, uint256 pendingRewards, uint256 totalClaimed, uint256 rank)',
   'function getUserStakes(address user) view returns (uint256[] stakeIds, uint256[] amounts, uint256[] scoreValues, uint256[] startTimes, bool[] actives)',
   'function pendingRewardAll(address user) view returns (uint256)',
+  'function getReinvestPreview(address user) view returns (uint256 inviteAmount, uint256 rankAmount, uint256 principalAmount, uint256 totalAmount, uint256 maturedStakeCount)',
   'function getReferralsPaginated(address user, uint256 offset, uint256 limit) view returns (address[] result, uint256 total)',
 ];
 
@@ -156,12 +156,11 @@ const userInfoView = (userInfo) => {
     referrer: valueAt(info, 'referrer', 4, ZERO),
     directReferrals: toNumber(valueAt(info, 'directReferrals', 5)),
     referralStakeVolume: toEther(valueAt(info, 'referralStakeVolume', 6)),
-    pendingInviteRewards: toEther(valueAt(info, 'pendingInviteRewards', 7)),
-    totalInviteClaimed: toEther(valueAt(info, 'totalInviteClaimed', 8)),
-    pendingRankRewards: toEther(valueAt(info, 'pendingRankRewards', 9)),
-    totalRankClaimed: toEther(valueAt(info, 'totalRankClaimed', 10)),
-    lockedInviteRewards: toEther(valueAt(info, 'lockedInviteRewards', 11, 0n)),
-    inviteUnlockCursor: toNumber(valueAt(info, 'inviteUnlockCursor', 12, 0n)),
+    personalStakeVolume: toEther(valueAt(info, 'personalStakeVolume', 7, 0n)),
+    pendingInviteRewards: toEther(valueAt(info, 'pendingInviteRewards', 8, 0n)),
+    totalInviteClaimed: toEther(valueAt(info, 'totalInviteClaimed', 9, 0n)),
+    lockedInviteRewards: toEther(valueAt(info, 'lockedInviteRewards', 10, 0n)),
+    inviteUnlockCursor: toNumber(valueAt(info, 'inviteUnlockCursor', 11, 0n)),
     pendingRewards: toEther(valueAt(userInfo, 'pendingRewards', 1)),
     totalClaimed: toEther(valueAt(userInfo, 'totalClaimed', 2)),
     rank: toNumber(valueAt(userInfo, 'rank', 3)),
@@ -172,11 +171,16 @@ const releaseView = (currentRelease) => {
   if (!currentRelease) return null;
   return {
     epochId: toNumber(valueAt(currentRelease, 'epochId', 0)),
-    amount: toEther(valueAt(currentRelease, 'amount', 1)),
+    amount: toEther(valueAt(currentRelease, 'poolAmount', 1)),
     totalNodes: toNumber(valueAt(currentRelease, 'totalNodes', 2)),
-    nextRank: toNumber(valueAt(currentRelease, 'nextRank', 3)),
-    allocatedAmount: toEther(valueAt(currentRelease, 'allocatedAmount', 4)),
-    finalized: Boolean(valueAt(currentRelease, 'finalized', 5)),
+    totalClaimed: toEther(valueAt(currentRelease, 'totalClaimed', 3, 0n)),
+    claimStart: toNumber(valueAt(currentRelease, 'claimStart', 4, 0)),
+    claimEnd: toNumber(valueAt(currentRelease, 'claimEnd', 5, 0)),
+    settled: Boolean(valueAt(currentRelease, 'settled', 6, false)),
+    disabled: Boolean(valueAt(currentRelease, 'disabled', 7, false)),
+    finalized: Boolean(valueAt(currentRelease, 'settled', 6, false)),
+    allocatedAmount: toEther(valueAt(currentRelease, 'totalClaimed', 3, 0n)),
+    nextRank: 0,
   };
 };
 
@@ -222,20 +226,31 @@ const readWithProvider = async (provider, account, rpcUrl) => {
   const lockPeriod = toNumber(lockPeriodRaw, 15 * 24 * 60 * 60);
   let userInfo = null;
   let pendingRewardAll = '0';
+  let reinvestPreview = null;
   let stakes = [];
   let referrals = [];
   let referralsTotal = 0;
 
   if (account) {
-    const [userInfoRaw, pendingRewardRaw, userStakesRaw, referralsRaw] = await Promise.all([
+    const [userInfoRaw, pendingRewardRaw, userStakesRaw, reinvestRaw, referralsRaw] = await Promise.all([
       contract.getUserInfo(account).catch(() => null),
       contract.pendingRewardAll(account).catch(() => 0n),
       contract.getUserStakes(account).catch(() => null),
+      contract.getReinvestPreview(account).catch(() => null),
       contract.getReferralsPaginated(account, 0, 10).catch(() => null),
     ]);
 
     userInfo = userInfoView(userInfoRaw);
     pendingRewardAll = toEther(pendingRewardRaw);
+    if (reinvestRaw) {
+      reinvestPreview = {
+        inviteAmount: toEther(valueAt(reinvestRaw, 'inviteAmount', 0)),
+        rankAmount: toEther(valueAt(reinvestRaw, 'rankAmount', 1)),
+        principalAmount: toEther(valueAt(reinvestRaw, 'principalAmount', 2)),
+        totalAmount: toEther(valueAt(reinvestRaw, 'totalAmount', 3)),
+        maturedStakeCount: toNumber(valueAt(reinvestRaw, 'maturedStakeCount', 4)),
+      };
+    }
     stakes = activeStakeView(userStakesRaw, lockPeriod);
     if (referralsRaw) {
       referrals = Array.from(valueAt(referralsRaw, 'result', 0, []));
@@ -257,6 +272,7 @@ const readWithProvider = async (provider, account, rpcUrl) => {
       rankedNodeCount: toNumber(valueAt(miningStatus, '_rankedNodeCount', 5)),
     },
     pendingRewardAll,
+    reinvestPreview,
     referrals,
     referralsTotal,
     rankedNodes: ranked.rankedNodes,
@@ -281,9 +297,10 @@ const readWithProvider = async (provider, account, rpcUrl) => {
 
 const readSnapshot = async (account) => {
   let lastError = null;
+  const chainId = Number(process.env.CHAIN_ID || DEFAULT_CHAIN_ID);
   for (const url of rpcUrls()) {
     try {
-      const provider = new ethers.JsonRpcProvider(url, 56, { staticNetwork: true, requestTimeout: 8000 });
+      const provider = new ethers.JsonRpcProvider(url, chainId, { staticNetwork: true, requestTimeout: 8000 });
       return await readWithProvider(provider, account, url);
     } catch (error) {
       lastError = error;

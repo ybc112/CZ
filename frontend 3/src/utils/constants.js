@@ -11,7 +11,8 @@ const STALE_TESTNET_ADDRESSES = new Set([
   '0xc84a22989be328e2caab41f1fe6bc8ed78004d04',
 ]);
 
-const configuredChainId = '0x38';
+// 当前链由 VITE_CHAIN_ID 决定：0x38 主网 / 0x61 测试网，默认主网
+const configuredChainId = import.meta.env.VITE_CHAIN_ID || '0x38';
 
 const mainnetSafeAddress = (value, fallback) => {
   if (!value) return fallback;
@@ -39,10 +40,11 @@ export const NETWORKS = {
       decimals: 18,
     },
     rpcUrls: [
-      'https://data-seed-prebsc-1-s1.binance.org:8545/',
-      'https://data-seed-prebsc-2-s1.binance.org:8545/',
+      'https://bsc-testnet.bnbchain.org',
       'https://bsc-testnet.publicnode.com',
       'https://bsc-testnet.blockpi.network/v1/rpc/public',
+      'https://data-seed-prebsc-1-s1.binance.org:8545/',
+      'https://data-seed-prebsc-2-s1.binance.org:8545/',
     ],
     blockExplorerUrls: ['https://testnet.bscscan.com'],
   },

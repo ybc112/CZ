@@ -67,7 +67,8 @@ export default function TokenMiningPage({
   const needsFeeApproval = !isNativeFee && parseFloat(feeAllowance || '0') < parseFloat(feeAmount || '0');
   const pendingRewardsAmount = userInfo?.pendingRewards || '0';
   const pendingRewardsNumber = parseFloat(pendingRewardsAmount || '0');
-  const needsCompoundFeeApproval = !isNativeFee && parseFloat(feeAllowance || '0') < parseFloat(feeAmount || '0');
+  const reinvestPreview = stakingData?.reinvestPreview;
+  const reinvestTotal = reinvestPreview ? parseFloat(reinvestPreview.totalAmount || '0') : 0;
   const canCompoundRewards = !stakingData?.stakingTokenAddress
     || !stakingData?.rewardTokenAddress
     || stakingData.stakingTokenAddress.toLowerCase() === stakingData.rewardTokenAddress.toLowerCase();
@@ -188,7 +189,7 @@ export default function TokenMiningPage({
       toast.error(parseContractError({ reason: 'Monthly release in progress' }));
       return;
     }
-    if (isNaN(pendingRewardsNumber) || pendingRewardsNumber <= 0) {
+    if (reinvestTotal <= 0) {
       toast.error(t('cz.toast.noRewardsToCompound'));
       return;
     }
@@ -196,7 +197,8 @@ export default function TokenMiningPage({
     setIsCompounding(true);
     try {
       toast.loading(t('cz.toast.compoundStake'), { id: 'compound' });
-      const tx = await contracts.writeStakingBank.compoundNodeRewards(selectedReferrer, feeTxOptions());
+      // V3：三源复投（解锁邀请奖励 + 本期排名分红 + 到期本金），免费，仅需推荐人
+      const tx = await contracts.writeStakingBank.reinvest(selectedReferrer);
       await tx.wait();
 
       toast.success(t('cz.toast.compoundSuccess'), { id: 'compound' });
@@ -209,10 +211,7 @@ export default function TokenMiningPage({
   };
 
   const handleCompoundAction = async () => {
-    if (needsCompoundFeeApproval) {
-      await approveFeeToken();
-      return;
-    }
+    // V3 复投免费，无需授权交互费
     await handleCompound();
   };
 
@@ -432,10 +431,10 @@ export default function TokenMiningPage({
 
             <button
               onClick={handleCompoundAction}
-              disabled={!account || isApprovingFee || isApprovingStake || isCompounding || isClaiming || isStaking || activeRelease || !(pendingRewardsNumber > 0) || !canCompoundRewards}
+              disabled={!account || isApprovingFee || isApprovingStake || isCompounding || isClaiming || isStaking || activeRelease || !(reinvestTotal > 0) || !canCompoundRewards}
               className="w-full btn-ghost border-[#FFB800]/50 bg-[#FFB800]/10 text-[#FFB800] hover:border-[#FFB800] hover:bg-[#FFB800]/20 hover:shadow-[0_0_30px_rgba(255,184,0,0.18)] disabled:opacity-50"
             >
-              {!canCompoundRewards ? t('cz.node.compoundUnavailable') : activeRelease ? t('cz.node.monthlyAllocating') : isCompounding ? t('cz.node.compounding') : !(pendingRewardsNumber > 0) ? t('cz.node.compoundRewards') : needsCompoundFeeApproval ? t('cz.node.approveFeeFirst') : `${t('cz.node.compoundRewards')} ${formatNumber(pendingRewardsAmount, 4)} CZ`}
+              {!canCompoundRewards ? t('cz.node.compoundUnavailable') : activeRelease ? t('cz.node.monthlyAllocating') : isCompounding ? t('cz.node.compounding') : !(reinvestTotal > 0) ? t('cz.node.compoundRewards') : `${t('cz.node.compoundRewards')} ${formatNumber(reinvestTotal, 4)} CZ`}
             </button>
           </div>
         </motion.div>

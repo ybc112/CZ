@@ -118,6 +118,7 @@ export function useStakingBank(contract, account) {
     rankedNodes: [],
     rankedNodesTotal: 0,
     currentRelease: null,
+    reinvestPreview: null,
     interactionFeeConfig: null,
     stakingTokenAddress: null,
     rewardTokenAddress: null,
@@ -134,23 +135,27 @@ export function useStakingBank(contract, account) {
     // 错误时保留上一次有效数据，避免 RPC 抖动导致界面全 0
     setData(prev => ({ ...prev, loading: true }));
 
-    try {
-      const snapshot = await fetchStakingSnapshot(account, forceRefresh);
-      // 服务器返回的是旧缓存（RPC 全挂时的兜底数据）：自动带 refresh=1 重试一次，跳过缓存直接读链上
-      if (!forceRefresh && snapshot?.cache?.stale) {
-        console.warn('Staking API returned stale cache, retrying with refresh=1');
-        try {
-          const fresh = await fetchStakingSnapshot(account, true);
-          setData(prev => applyStakingSnapshot(prev, fresh));
-          return;
-        } catch (retryError) {
-          console.warn('Stale cache refresh failed, using stale snapshot:', retryError);
+    // 测试网环境：线上后端仍是主网配置，直接读链上，避免拿到旧合约数据
+    const isTestnet = (import.meta.env.VITE_CHAIN_ID || '0x38') === '0x61';
+    if (!isTestnet) {
+      try {
+        const snapshot = await fetchStakingSnapshot(account, forceRefresh);
+        // 服务器返回的是旧缓存（RPC 全挂时的兜底数据）：自动带 refresh=1 重试一次，跳过缓存直接读链上
+        if (!forceRefresh && snapshot?.cache?.stale) {
+          console.warn('Staking API returned stale cache, retrying with refresh=1');
+          try {
+            const fresh = await fetchStakingSnapshot(account, true);
+            setData(prev => applyStakingSnapshot(prev, fresh));
+            return;
+          } catch (retryError) {
+            console.warn('Stale cache refresh failed, using stale snapshot:', retryError);
+          }
         }
+        setData(prev => applyStakingSnapshot(prev, snapshot));
+        return;
+      } catch (apiError) {
+        console.warn('Staking cache API failed, falling back to direct contract reads:', apiError);
       }
-      setData(prev => applyStakingSnapshot(prev, snapshot));
-      return;
-    } catch (apiError) {
-      console.warn('Staking cache API failed, falling back to direct contract reads:', apiError);
     }
 
     if (!contract) {
@@ -195,12 +200,19 @@ export function useStakingBank(contract, account) {
       let userInfo = null;
       let stakes = [];
       let pendingRewardAll = BigInt(0);
+      let pendingRankRewards = BigInt(0);
+      let reinvestData = null;
       let referrals = [];
       let referralsTotal = 0;
 
       if (account) {
         userInfo = await safeRead(() => contract.getUserInfo(account), null);
         pendingRewardAll = await safeRead(() => contract.pendingRewardAll(account), BigInt(0));
+        // V3：排名分红按期领取，当前期可领取金额作为待领取排名分红展示
+        try {
+          const epochId = Number(await contract.currentEpochId());
+          pendingRankRewards = await safeRead(() => contract.pendingEpochReward(epochId, account), BigInt(0));
+        } catch { /* keep default */ }
 
         const userStakes = await safeRead(() => contract.getUserStakes(account), null);
         if (userStakes) {
@@ -226,6 +238,18 @@ export function useStakingBank(contract, account) {
           referrals = refData.result;
           referralsTotal = Number(refData.total);
         }
+
+        // V3：三源复投预览（解锁邀请奖励 + 本期排名分红 + 到期本金）
+        const reinvestPreview = await safeRead(() => contract.getReinvestPreview(account), null);
+        if (reinvestPreview) {
+          reinvestData = {
+            inviteAmount: ethers.formatEther(reinvestPreview.inviteAmount ?? reinvestPreview[0] ?? 0n),
+            rankAmount: ethers.formatEther(reinvestPreview.rankAmount ?? reinvestPreview[1] ?? 0n),
+            principalAmount: ethers.formatEther(reinvestPreview.principalAmount ?? reinvestPreview[2] ?? 0n),
+            totalAmount: ethers.formatEther(reinvestPreview.totalAmount ?? reinvestPreview[3] ?? 0n),
+            maturedStakeCount: Number(reinvestPreview.maturedStakeCount ?? reinvestPreview[4] ?? 0),
+          };
+        }
       }
 
       const info = userInfo?.info || userInfo?.[0];
@@ -248,12 +272,13 @@ export function useStakingBank(contract, account) {
           referrer: info.referrer ?? info[4],
           directReferrals: Number(info.directReferrals ?? info[5]),
           referralStakeVolume: ethers.formatEther(info.referralStakeVolume ?? info[6]),
-          pendingInviteRewards: ethers.formatEther(info.pendingInviteRewards ?? info[7]),
-          totalInviteClaimed: ethers.formatEther(info.totalInviteClaimed ?? info[8]),
-          pendingRankRewards: ethers.formatEther(info.pendingRankRewards ?? info[9]),
-          totalRankClaimed: ethers.formatEther(info.totalRankClaimed ?? info[10]),
-          lockedInviteRewards: ethers.formatEther(info.lockedInviteRewards ?? info[11] ?? 0n),
-          inviteUnlockCursor: Number(info.inviteUnlockCursor ?? info[12] ?? 0n),
+          personalStakeVolume: ethers.formatEther(info.personalStakeVolume ?? info[7] ?? 0n),
+          pendingInviteRewards: ethers.formatEther(info.pendingInviteRewards ?? info[8] ?? 0n),
+          totalInviteClaimed: ethers.formatEther(info.totalInviteClaimed ?? info[9] ?? 0n),
+          pendingRankRewards: ethers.formatEther(pendingRankRewards),
+          totalRankClaimed: '0',
+          lockedInviteRewards: ethers.formatEther(info.lockedInviteRewards ?? info[10] ?? 0n),
+          inviteUnlockCursor: Number(info.inviteUnlockCursor ?? info[11] ?? 0n),
           pendingRewards: ethers.formatEther(userInfo.pendingRewards ?? userInfo[1]),
           totalClaimed: ethers.formatEther(userInfo.totalClaimed ?? userInfo[2]),
           rank: Number(userInfo.rank ?? userInfo[3]),
@@ -274,12 +299,18 @@ export function useStakingBank(contract, account) {
         rankedNodesTotal,
         currentRelease: currentRelease ? {
           epochId: Number(currentRelease.epochId ?? currentRelease[0]),
-          amount: ethers.formatEther(currentRelease.amount ?? currentRelease[1]),
-          totalNodes: Number(currentRelease.totalNodes ?? currentRelease[2]),
-          nextRank: Number(currentRelease.nextRank ?? currentRelease[3]),
-          allocatedAmount: ethers.formatEther(currentRelease.allocatedAmount ?? currentRelease[4]),
-          finalized: currentRelease.finalized ?? currentRelease[5],
+          amount: ethers.formatEther(currentRelease.poolAmount ?? currentRelease[1] ?? 0n),
+          totalNodes: Number(currentRelease.totalNodes ?? currentRelease[2] ?? 0),
+          claimStart: Number(currentRelease.claimStart ?? currentRelease[4] ?? 0),
+          claimEnd: Number(currentRelease.claimEnd ?? currentRelease[5] ?? 0),
+          totalClaimed: ethers.formatEther(currentRelease.totalClaimed ?? currentRelease[3] ?? 0n),
+          allocatedAmount: ethers.formatEther(currentRelease.totalClaimed ?? currentRelease[3] ?? 0n),
+          settled: currentRelease.settled ?? currentRelease[6] ?? false,
+          disabled: currentRelease.disabled ?? currentRelease[7] ?? false,
+          finalized: currentRelease.settled ?? currentRelease[6] ?? false,
+          nextRank: 0,
         } : prev.currentRelease,
+        reinvestPreview: reinvestData || prev.reinvestPreview,
         interactionFeeConfig: interactionFeeConfig ? {
           feeToken: interactionFeeConfig.feeToken ?? interactionFeeConfig[0],
           fee: ethers.formatEther(interactionFeeConfig.fee ?? interactionFeeConfig[1]),
