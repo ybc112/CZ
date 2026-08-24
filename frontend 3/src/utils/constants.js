@@ -27,7 +27,7 @@ export const CONTRACTS = {
   NBT_TOKEN: mainnetSafeAddress(import.meta.env.VITE_NBT_TOKEN, MAINNET_CONTRACTS.NBT_TOKEN),
   STAKING_BANK: mainnetSafeAddress(import.meta.env.VITE_STAKING_BANK, MAINNET_CONTRACTS.STAKING_BANK),
   NBT_PAIR: import.meta.env.VITE_NBT_PAIR || '',
-  FEE_TOKEN: MAINNET_CONTRACTS.FEE_TOKEN,
+  FEE_TOKEN: import.meta.env.VITE_FEE_TOKEN || MAINNET_CONTRACTS.FEE_TOKEN,
 };
 
 export const NETWORKS = {
