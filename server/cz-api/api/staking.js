@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { ethers } = require('ethers');
 
-const DEFAULT_STAKING_BANK = '0x79eEEa064949FBE2959A7300058D6B15421c0661';
+const DEFAULT_STAKING_BANK = '0x98202ecA3D2AA014b67caa635dC3AB3acfc1E8B8';
 const DEFAULT_CZ_TOKEN = '0x713ee05217E6a8955D42744A7fFe235f263561Cb';
 const DEFAULT_CHAIN_ID = 97;
 const DEFAULT_RPC_URLS = [

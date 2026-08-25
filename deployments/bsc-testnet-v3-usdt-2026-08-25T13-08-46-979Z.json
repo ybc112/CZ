@@ -1,0 +1,14 @@
+{
+  "network": "bsc-testnet",
+  "chainId": 97,
+  "timestamp": "2026-08-25T13-08-46-979Z",
+  "deployer": "0xe1F9Fb65BBb39ebd4d0C204c95513d3f6421c407",
+  "nbtToken": "0x713ee05217E6a8955D42744A7fFe235f263561Cb",
+  "stakingBank": "0x98202ecA3D2AA014b67caa635dC3AB3acfc1E8B8",
+  "feeToken": "0xFd5eCe450FC9003f56c17fFe8AB370779f808EDe",
+  "interactionFeeUsdc": "0.45",
+  "feeReceiver": "0x5A378b61193ac2ce07cE816893C080804504a2f0",
+  "inviteReward": "10000",
+  "minReferralStakeValue": "100",
+  "initialRewardFund": "1000000"
+}
