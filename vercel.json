@@ -2,6 +2,15 @@
   "installCommand": "npm --prefix \"frontend 3\" install",
   "buildCommand": "npm --prefix \"frontend 3\" run build",
   "outputDirectory": "frontend 3/dist",
+  "build": {
+    "env": {
+      "VITE_CHAIN_ID": "0x61",
+      "VITE_NBT_TOKEN": "0x713ee05217E6a8955D42744A7fFe235f263561Cb",
+      "VITE_STAKING_BANK": "0x98202ecA3D2AA014b67caa635dC3AB3acfc1E8B8",
+      "VITE_NBT_PAIR": "",
+      "VITE_FEE_TOKEN": "0xFd5eCe450FC9003f56c17fFe8AB370779f808EDe"
+    }
+  },
   "functions": {
     "api/staking.js": { "maxDuration": 10 },
     "api/rpc.js": { "maxDuration": 10 }
