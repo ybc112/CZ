@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiMenu, FiX, FiExternalLink, FiShield, FiGlobe } from 'react-icons/fi';
+import { FiMenu, FiX, FiExternalLink, FiShield, FiGlobe, FiDownload } from 'react-icons/fi';
 import { CURRENT_NETWORK, formatAddress, getExplorerAddressUrl } from '../utils/constants';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -39,6 +39,7 @@ export default function Header({ account, isConnecting, isCorrectNetwork, onConn
     { id: 'home', label: t('header.home') },
     { id: 'token-mining', label: t('header.tokenMining') },
     { id: 'referral', label: t('header.referral') },
+    { id: 'legacy-claim', label: t('header.legacyClaim'), icon: <FiDownload className="w-4 h-4" /> },
   ];
 
   // 只有管理员才能看到管理菜单

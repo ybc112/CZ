@@ -113,3 +113,25 @@ export const STAKING_BANK_ABI = [
   "event OwnershipTransferred(address indexed previousOwner, address indexed newOwner)",
   "event WrongTokenRecovered(address indexed token, address indexed to, uint256 amount)",
 ];
+
+// 旧版 V1 质押合约 ABI（CZ人生 经济模型与合约逻辑分析.md 记录，主网 0x903f...），用于旧 CZ 领取入口
+export const LEGACY_STAKING_BANK_ABI = [
+  "function stakingToken() view returns (address)",
+  "function rewardToken() view returns (address)",
+  "function paused() view returns (bool)",
+  "function userInfo(address) view returns (uint256 totalStaked, uint256 totalWithdrawn, uint256 stakeCount, uint256 activeStakeCount, address referrer, uint256 directReferrals, uint256 referralStakeVolume, uint256 pendingInviteRewards, uint256 totalInviteClaimed, uint256 pendingRankRewards, uint256 totalRankClaimed, uint256 lockedInviteRewards, uint256 inviteUnlockCursor)",
+  "function pendingRewardAll(address user) view returns (uint256)",
+  "function getMiningStatus() view returns (uint256 _totalStaked, uint256 _totalDistributed, uint256 _claimableRewards, bool _releaseInProgress, uint256 _startTime, uint256 _rankedNodeCount)",
+  "function getInteractionFeeConfig() view returns (address feeToken, uint256 fee, address receiverA, address receiverB)",
+  "function getUserInfo(address user) view returns (tuple(uint256 totalStaked, uint256 totalWithdrawn, uint256 stakeCount, uint256 activeStakeCount, address referrer, uint256 directReferrals, uint256 referralStakeVolume, uint256 pendingInviteRewards, uint256 totalInviteClaimed, uint256 pendingRankRewards, uint256 totalRankClaimed, uint256 lockedInviteRewards, uint256 inviteUnlockCursor) info, uint256 pendingRewards, uint256 totalClaimed, uint256 rank)",
+  "function getUserStakes(address user) view returns (uint256[] stakeIds, uint256[] amounts, uint256[] scoreValues, uint256[] startTimes, bool[] actives)",
+  "function getNodeRank(address node) view returns (uint256)",
+  "function currentEpochId() view returns (uint256)",
+  "function totalRankDistributed() view returns (uint256)",
+  "function totalRankClaimed() view returns (uint256)",
+  "function totalInviteRewardsAccrued() view returns (uint256)",
+  "function totalInviteRewardsClaimed() view returns (uint256)",
+  "function claimNodeRewards() payable",
+  "function claimReferralRewards() payable",
+  "function claimAll() payable",
+];

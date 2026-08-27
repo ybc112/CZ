@@ -4,6 +4,12 @@ const MAINNET_CONTRACTS = {
   FEE_TOKEN: '',
 };
 
+// 旧版 V1 主网合约（CZ人生 经济模型与合约逻辑分析.md 记录），用于旧 CZ 领取入口
+export const LEGACY_CONTRACTS = {
+  STAKING_BANK: '0x903fcce5d67648FBE6Dccc9806e3bd7D303380fD',
+  CZ_TOKEN: '0xD0F2A86C7EbCeE887F5bFB86771f994CD142bD04',
+};
+
 const STALE_TESTNET_ADDRESSES = new Set([
   '0x99fbddb26bc6b10dc9df80d6c6d943812047f406',
   '0xb110ea48824383babede6ba7e19d5e01089de6cc',

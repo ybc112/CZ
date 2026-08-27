@@ -9,6 +9,7 @@ import HomePage from './components/HomePage';
 import TokenMiningPage from './components/TokenMiningPage';
 import ReferralPage from './components/ReferralPage';
 import AdminPage from './components/AdminPage';
+import LegacyClaimPage from './components/LegacyClaimPage';
 
 import { useWallet } from './hooks/useWallet';
 import { useAllowance, useContracts, useStakingBank, useTokenBalance, useTokenFeeConfig } from './hooks/useContracts';
@@ -222,6 +223,18 @@ function App() {
             feeAllowance={feeAllowance}
             contracts={contracts}
             onRefresh={handleRefresh}
+          />
+        );
+      case 'legacy-claim':
+        return (
+          <LegacyClaimPage
+            account={account}
+            provider={provider}
+            signer={signer}
+            isCorrectNetwork={isCorrectNetwork}
+            onSwitchNetwork={switchNetwork}
+            onRefresh={handleRefresh}
+            onGoStake={setCurrentPage}
           />
         );
       case 'admin':
