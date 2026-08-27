@@ -203,6 +203,7 @@ function App() {
         return (
           <TokenMiningPage
             account={account}
+            signer={signer}
             stakingData={stakingData}
             tokenBalance={tokenBalance}
             stakingAllowance={stakingAllowance}
