@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { motion } from 'framer-motion';
-import { FiArrowRight, FiDownload, FiGift, FiShield, FiTrophy, FiTrendingUp, FiUsers, FiZap } from 'react-icons/fi';
+import { FiArrowRight, FiDownload, FiGift, FiShield, FiAward, FiTrendingUp, FiUsers, FiZap } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
 import { LEGACY_CONTRACTS, formatNumber, getExplorerAddressUrl, getExplorerTxUrl, parseContractError } from '../utils/constants';
 import { LEGACY_STAKING_BANK_ABI, ERC20_ABI } from '../abi';
@@ -153,7 +153,7 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
       <section className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-5">
         {[
           { label: t('legacy.statUnclaimedInvite'), value: globalData?.unclaimedInvite ?? '0', suffix: 'CZ', icon: <FiGift /> },
-          { label: t('legacy.statUnclaimedRank'), value: globalData?.unclaimedRank ?? '0', suffix: 'CZ', icon: <FiTrophy /> },
+          { label: t('legacy.statUnclaimedRank'), value: globalData?.unclaimedRank ?? '0', suffix: 'CZ', icon: <FiAward /> },
           { label: t('legacy.statTotalStaked'), value: globalData?.miningStatus?.totalStaked ?? '0', suffix: 'CZ', icon: <FiTrendingUp /> },
           { label: t('legacy.statNodes'), value: globalData?.miningStatus?.rankedNodeCount ?? 0, suffix: t('legacy.nodesUnit'), icon: <FiUsers /> },
         ].map((stat, index) => (
