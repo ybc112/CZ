@@ -1,7 +1,4 @@
 {
-  "installCommand": "npm install",
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
   "build": {
     "env": {
       "VITE_CHAIN_ID": "0x38",
