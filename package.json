@@ -13,8 +13,10 @@
     "build:frontend": "npm --prefix \"frontend 3\" run build"
   },
   "dependencies": {
+    "cors": "^2.8.6",
     "dotenv": "^17.4.2",
-    "ethers": "^6.16.0"
+    "ethers": "^6.16.0",
+    "express": "^5.2.1"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^6.1.2",

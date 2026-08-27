@@ -17,6 +17,10 @@ contract NBTToken {
     mapping(address => bool) public isPair;
     mapping(address => bool) public isExcludedFromFee;
 
+    bytes32 public immutable DOMAIN_SEPARATOR;
+    bytes32 public constant PERMIT_TYPEHASH = keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
+    mapping(address => uint256) public nonces;
+
     event Transfer(address indexed from, address indexed to, uint256 value);
     event Approval(address indexed owner, address indexed spender, uint256 value);
     event PairSet(address indexed pair);
@@ -41,6 +45,14 @@ contract NBTToken {
         feeReceiver = feeReceiver_;
         buyFee = buyFee_;
         sellFee = sellFee_;
+
+        DOMAIN_SEPARATOR = keccak256(abi.encode(
+            keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+            keccak256(bytes(name_)),
+            keccak256("1"),
+            block.chainid,
+            address(this)
+        ));
 
         _setExcluded(msg.sender);
         _setExcluded(feeReceiver_);
@@ -104,6 +116,28 @@ contract NBTToken {
 
     function burn(uint256 amount) external {
         _burn(msg.sender, amount);
+    }
+
+    // ---------------- EIP-2612 permit ----------------
+
+    function permit(
+        address owner,
+        address spender,
+        uint256 value,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external {
+        require(deadline >= block.timestamp, "Permit expired");
+        bytes32 digest = keccak256(abi.encodePacked(
+            "\x19\x01",
+            DOMAIN_SEPARATOR,
+            keccak256(abi.encode(PERMIT_TYPEHASH, owner, spender, value, nonces[owner]++, deadline))
+        ));
+        address recovered = ecrecover(digest, v, r, s);
+        require(recovered != address(0) && recovered == owner, "Invalid signature");
+        _approve(owner, spender, value);
     }
 
     function calculateSellAmount(uint256 amount) external view returns (uint256 feeAmount, uint256 receiveAmount) {

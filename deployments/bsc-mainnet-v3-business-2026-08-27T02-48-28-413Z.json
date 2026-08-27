@@ -1,0 +1,9 @@
+{
+  "network": "bsc-mainnet",
+  "timestamp": "2026-08-27T02-48-28-413Z",
+  "deployer": "0xe1F9Fb65BBb39ebd4d0C204c95513d3f6421c407",
+  "nbtToken": "0x8289224FbceDF105Ac23BAC484240501590ADDB4",
+  "stakingBankV3": "0xb10b5403cD636a0C3795bD90e35072Fb6e8778AF",
+  "attackVault": "0x6927474352E967D9CA63d94774F805FcE793132D",
+  "feeReceiver": "0x4bfe5e33edfa1ef6b2ed504a5e325507c6d8f21d"
+}

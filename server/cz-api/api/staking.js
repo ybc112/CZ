@@ -2,14 +2,14 @@ const fs = require('fs');
 const path = require('path');
 const { ethers } = require('ethers');
 
-const DEFAULT_STAKING_BANK = '0x98202ecA3D2AA014b67caa635dC3AB3acfc1E8B8';
-const DEFAULT_CZ_TOKEN = '0x713ee05217E6a8955D42744A7fFe235f263561Cb';
-const DEFAULT_CHAIN_ID = 97;
+const DEFAULT_STAKING_BANK = '0xDD51846755476bd6Cb02fACc28cA40c62F2Eb28d';
+const DEFAULT_CZ_TOKEN = '0x3A911a15CB705f616d705D44297360C5C0BC1a48';
+const DEFAULT_CHAIN_ID = 56;
 const DEFAULT_RPC_URLS = [
-  'https://bsc-testnet.bnbchain.org',
-  'https://bsc-testnet.publicnode.com',
-  'https://bsc-testnet.blockpi.network/v1/rpc/public',
-  'https://bsc-testnet.drpc.org',
+  'https://bsc-dataseed.bnbchain.org',
+  'https://bsc-dataseed1.bnbchain.org',
+  'https://bsc.publicnode.com',
+  'https://bsc.blockpi.network/v1/rpc/public',
 ];
 
 const STAKING_ABI = [

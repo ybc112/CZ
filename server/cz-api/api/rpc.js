@@ -1,8 +1,8 @@
 const DEFAULT_RPC_URLS = [
-  'https://bsc-testnet.bnbchain.org',
-  'https://bsc-testnet.publicnode.com',
-  'https://bsc-testnet.blockpi.network/v1/rpc/public',
-  'https://bsc-testnet.drpc.org',
+  'https://bsc-dataseed.bnbchain.org',
+  'https://bsc-dataseed1.bnbchain.org',
+  'https://bsc.publicnode.com',
+  'https://bsc.blockpi.network/v1/rpc/public',
 ];
 
 const CACHE_TTL_MS = Number(process.env.RPC_CACHE_TTL_MS || 5000);

@@ -17,6 +17,8 @@ export const NBT_TOKEN_ABI = [
   "function getFeeConfig() view returns (uint256 _buyFee, uint256 _sellFee, address _feeReceiver)",
   "function isExcludedFromFee(address) view returns (bool)",
   "function burn(uint256 amount)",
+  "function nonces(address owner) view returns (uint256)",
+  "function DOMAIN_SEPARATOR() view returns (bytes32)",
 ];
 
 export const STAKING_BANK_ABI = [

