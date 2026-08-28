@@ -259,7 +259,11 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
               </div>
 
               {parseFloat(pending) <= 0 && (
-                <p className="mt-4 text-xs text-white/35">{t('legacy.noPending')}</p>
+                <p className="mt-4 text-xs text-white/35">
+                  {userData?.rank > 0
+                    ? t('legacy.noPending')
+                    : t('legacy.noPendingRank')}
+                </p>
               )}
               <p className="mt-3 text-xs text-white/35">{t('legacy.feeNote')}</p>
             </>
