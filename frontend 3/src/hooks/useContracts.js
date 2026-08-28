@@ -334,7 +334,7 @@ export function useStakingBank(contract, account) {
 
   useEffect(() => {
     fetchData(false);
-    const interval = setInterval(() => fetchData(false), 15000);
+    const interval = setInterval(() => fetchData(false), 30000);
     return () => clearInterval(interval);
   }, [fetchData]);
 
@@ -361,7 +361,7 @@ export function useTokenBalance(tokenContract, account) {
 
   useEffect(() => {
     fetchBalance();
-    const interval = setInterval(fetchBalance, 10000);
+    const interval = setInterval(fetchBalance, 30000);
     return () => clearInterval(interval);
   }, [fetchBalance]);
 
@@ -429,7 +429,7 @@ export function useTokenFeeConfig(tokenContract, account) {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 15000);
+    const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
   }, [fetchData]);
 

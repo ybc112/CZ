@@ -13,8 +13,11 @@ const createDefaultProvider = async () => {
 
   for (const url of rpcUrls) {
     try {
-      const provider = new ethers.JsonRpcProvider(url);
-      await provider.getNetwork();
+      const provider = new ethers.JsonRpcProvider(url, undefined, {
+        staticNetwork: true,
+        requestTimeout: 6000,
+      });
+      await provider.getBlockNumber();
       return provider;
     } catch (err) {
       errors.push(`${url}: ${err?.message || err}`);
@@ -22,7 +25,11 @@ const createDefaultProvider = async () => {
   }
 
   console.error('All RPC nodes failed:', errors);
-  return new ethers.JsonRpcProvider(rpcUrls[0]);
+  const fallback = new ethers.JsonRpcProvider(rpcUrls[0], undefined, {
+    staticNetwork: true,
+    requestTimeout: 6000,
+  });
+  return fallback;
 };
 
 const parseChainId = (value) => {

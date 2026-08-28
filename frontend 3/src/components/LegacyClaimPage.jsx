@@ -24,15 +24,23 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
     if (!provider || !legacyBank) { setLoading(false); return; }
     setLoading(true);
     try {
-      const [paused, miningStatus, epochId, totalRankDist, totalRankClaimed, totalInviteAcc, totalInviteClaimed] = await Promise.all([
-        legacyBank.paused().catch(() => false),
-        legacyBank.getMiningStatus().catch(() => null),
-        legacyBank.currentEpochId().catch(() => 0n),
-        legacyBank.totalRankDistributed().catch(() => 0n),
-        legacyBank.totalRankClaimed().catch(() => 0n),
-        legacyBank.totalInviteRewardsAccrued().catch(() => 0n),
-        legacyBank.totalInviteRewardsClaimed().catch(() => 0n),
+      const results = await Promise.allSettled([
+        legacyBank.paused(),
+        legacyBank.getMiningStatus(),
+        legacyBank.currentEpochId(),
+        legacyBank.totalRankDistributed(),
+        legacyBank.totalRankClaimed(),
+        legacyBank.totalInviteRewardsAccrued(),
+        legacyBank.totalInviteRewardsClaimed(),
       ]);
+
+      const paused = results[0].status === 'fulfilled' ? results[0].value : false;
+      const miningStatus = results[1].status === 'fulfilled' ? results[1].value : null;
+      const epochId = results[2].status === 'fulfilled' ? results[2].value : 0n;
+      const totalRankDist = results[3].status === 'fulfilled' ? results[3].value : 0n;
+      const totalRankClaimed = results[4].status === 'fulfilled' ? results[4].value : 0n;
+      const totalInviteAcc = results[5].status === 'fulfilled' ? results[5].value : 0n;
+      const totalInviteClaimed = results[6].status === 'fulfilled' ? results[6].value : 0n;
 
       let user = null;
       let userBalance = '0';
@@ -53,7 +61,7 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
         }
       }
 
-      setGlobalData({
+      setGlobalData(prev => ({
         paused,
         miningStatus: miningStatus ? {
           totalStaked: ethers.formatEther(miningStatus._totalStaked ?? miningStatus[0] ?? 0n),
@@ -61,7 +69,7 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
           claimableRewards: ethers.formatEther(miningStatus._claimableRewards ?? miningStatus[2] ?? 0n),
           releaseInProgress: miningStatus._releaseInProgress ?? miningStatus[3] ?? false,
           rankedNodeCount: Number(miningStatus._rankedNodeCount ?? miningStatus[5] ?? 0),
-        } : null,
+        } : prev?.miningStatus ?? null,
         epochId: Number(epochId),
         totalRankDistributed: ethers.formatEther(totalRankDist),
         totalRankClaimed: ethers.formatEther(totalRankClaimed),
@@ -69,9 +77,9 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
         totalInviteClaimed: ethers.formatEther(totalInviteClaimed),
         unclaimedRank: ethers.formatEther(totalRankDist - totalRankClaimed),
         unclaimedInvite: ethers.formatEther(totalInviteAcc - totalInviteClaimed),
-      });
-      setUserData(user);
-      setCzBalance(userBalance);
+      }));
+      setUserData(prev => user ?? prev);
+      if (userBalance !== '0') setCzBalance(userBalance);
     } catch (err) {
       console.error('Load legacy data error:', err);
     } finally {
@@ -81,7 +89,7 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 15000);
+    const interval = setInterval(loadData, 30000);
     return () => clearInterval(interval);
   }, [loadData, refreshTick]);
 
