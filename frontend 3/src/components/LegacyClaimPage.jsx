@@ -46,12 +46,33 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
       let userBalance = '0';
       if (account) {
         try {
+          // 链上合约 getUserInfo 实际返回 16 个命名值（不是 tuple+3 包装格式）
           const ui = await legacyBank.getUserInfo(account);
+          const raw = Object.values(ui);
+          // 按顺序：totalStaked, totalWithdrawn, stakeCount, activeStakeCount, referrer,
+          // directReferrals, referralStakeVolume, pendingInviteRewards, totalInviteClaimed,
+          // pendingRankRewards, totalRankClaimed, lockedInviteRewards, inviteUnlockCursor,
+          // pendingRewards, totalClaimed, rank
+          const info = {
+            totalStaked: raw[0],
+            totalWithdrawn: raw[1],
+            stakeCount: raw[2],
+            activeStakeCount: raw[3],
+            referrer: raw[4],
+            directReferrals: raw[5],
+            referralStakeVolume: raw[6],
+            pendingInviteRewards: raw[7],
+            totalInviteClaimed: raw[8],
+            pendingRankRewards: raw[9],
+            totalRankClaimed: raw[10],
+            lockedInviteRewards: raw[11],
+            inviteUnlockCursor: raw[12],
+          };
           user = {
-            info: ui.info || ui[0],
-            pendingRewards: ui.pendingRewards ?? ui[1],
-            totalClaimed: ui.totalClaimed ?? ui[2],
-            rank: Number(ui.rank ?? ui[3]),
+            info,
+            pendingRewards: raw[13],
+            totalClaimed: raw[14],
+            rank: Number(raw[15] ?? 0),
           };
         } catch (err) {
           console.warn('getUserInfo failed:', err);
@@ -97,13 +118,18 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
     if (!writeLegacyBank || !account) return;
     setClaiming(true);
     try {
-      // 读取交互费配置（旧合约用 BNB）
+      // 旧合约交互费用 BNB，链上返回 3 字段 (feeToken, fee, receiverA)
       let txOptions = {};
       try {
         const cfg = await legacyBank.getInteractionFeeConfig();
-        const native = cfg.feeToken === ethers.ZeroAddress || !cfg.feeToken;
-        if (native && cfg.fee > 0n) txOptions = { value: cfg.fee };
-      } catch { /* 读不到时不带 value */ }
+        const feeToken = cfg.feeToken ?? cfg[0];
+        const fee = cfg.fee ?? cfg[1];
+        const native = feeToken === ethers.ZeroAddress || !feeToken || feeToken === '0x0000000000000000000000000000000000000000';
+        if (native && fee && fee > 0n) txOptions = { value: fee };
+      } catch (e) {
+        console.warn('fee config failed, defaulting BNB 0.0007:', e.message);
+        txOptions = { value: ethers.parseEther('0.000701754385964912') };
+      }
       const tx = await writeLegacyBank.claimAll(txOptions);
       toast.loading(t('legacy.claiming'), { id: 'legacyClaim' });
       await tx.wait();
