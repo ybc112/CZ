@@ -130,7 +130,7 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
         console.warn('fee config failed, defaulting BNB 0.0007:', e.message);
         txOptions = { value: ethers.parseEther('0.000701754385964912') };
       }
-      const tx = await writeLegacyBank.claimAll(txOptions);
+      const tx = await writeLegacyBank.claimAll({ ...txOptions, gasLimit: 2000000 });
       toast.loading(t('legacy.claiming'), { id: 'legacyClaim' });
       await tx.wait();
       toast.success(t('legacy.claimSuccess'), { id: 'legacyClaim' });

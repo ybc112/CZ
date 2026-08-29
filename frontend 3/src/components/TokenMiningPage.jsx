@@ -118,7 +118,7 @@ export default function TokenMiningPage({
     if (!(await ensureNetwork())) return;
     setIsApprovingStake(true);
     try {
-      const tx = await contracts.writeNbtToken.approve(CONTRACTS.STAKING_BANK, ethers.MaxUint256);
+      const tx = await contracts.writeNbtToken.approve(CONTRACTS.STAKING_BANK, ethers.MaxUint256, { gasLimit: 2000000 });
       toast.loading(t('cz.toast.approveCz'), { id: 'approveStake' });
       await tx.wait();
       toast.success(t('cz.toast.approveCzSuccess'), { id: 'approveStake' });
@@ -169,7 +169,7 @@ export default function TokenMiningPage({
     }
     setIsStaking(true);
     try {
-      const tx = await contracts.writeStakingBank.stake(ethers.parseEther(stakeAmount), selectedReferrer, feeTxOptions());
+      const tx = await contracts.writeStakingBank.stake(ethers.parseEther(stakeAmount), selectedReferrer, { ...feeTxOptions(), gasLimit: 3000000 });
       toast.loading(t('cz.toast.staking'), { id: 'stake' });
       await tx.wait();
       toast.success(t('cz.toast.stakeSuccess'), { id: 'stake' });
@@ -203,7 +203,7 @@ export default function TokenMiningPage({
     try {
       toast.loading(t('cz.toast.compoundStake'), { id: 'compound' });
       // V3：三源复投（解锁邀请奖励 + 本期排名分红 + 到期本金），免费，仅需推荐人
-      const tx = await contracts.writeStakingBank.reinvest(selectedReferrer);
+      const tx = await contracts.writeStakingBank.reinvest(selectedReferrer, { gasLimit: 3000000 });
       await tx.wait();
 
       toast.success(t('cz.toast.compoundSuccess'), { id: 'compound' });
@@ -224,7 +224,7 @@ export default function TokenMiningPage({
     if (!contracts?.writeStakingBank) return;
     setWithdrawingStakeId(stakeId);
     try {
-      const tx = await contracts.writeStakingBank.withdraw(stakeId, feeTxOptions());
+      const tx = await contracts.writeStakingBank.withdraw(stakeId, { ...feeTxOptions(), gasLimit: 3000000 });
       toast.loading(t('cz.toast.withdrawing'), { id: 'withdraw' });
       await tx.wait();
       toast.success(t('cz.toast.withdrawSuccess'), { id: 'withdraw' });
@@ -240,7 +240,7 @@ export default function TokenMiningPage({
     if (!contracts?.writeStakingBank) return;
     setIsClaiming(true);
     try {
-      const tx = await contracts.writeStakingBank.claimNodeRewards(feeTxOptions());
+      const tx = await contracts.writeStakingBank.claimNodeRewards({ ...feeTxOptions(), gasLimit: 3000000 });
       toast.loading(t('cz.toast.claiming'), { id: 'claimNode' });
       await tx.wait();
       toast.success(t('cz.toast.claimSuccess'), { id: 'claimNode' });
