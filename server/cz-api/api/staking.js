@@ -2,8 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const { ethers } = require('ethers');
 
-const DEFAULT_STAKING_BANK = '0xDD51846755476bd6Cb02fACc28cA40c62F2Eb28d';
-const DEFAULT_CZ_TOKEN = '0x3A911a15CB705f616d705D44297360C5C0BC1a48';
+const DEFAULT_STAKING_BANK = '0x94767098D05982932270D2A4E1B7a897d4397D55';
+const DEFAULT_CZ_TOKEN = '0xD0F2A86C7EbCeE887F5bFB86771f994CD142bD04';
 const DEFAULT_CHAIN_ID = 56;
 const DEFAULT_RPC_URLS = [
   'https://bsc-dataseed.bnbchain.org',
