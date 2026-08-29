@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { motion } from 'framer-motion';
-import { FiArrowRight, FiDownload, FiGift, FiShield, FiAward, FiTrendingUp, FiUsers, FiZap } from 'react-icons/fi';
+import { FiArrowRight, FiDownload, FiGift, FiLock, FiShield, FiAward, FiTrendingUp, FiUsers, FiZap } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
 import { LEGACY_CONTRACTS, formatNumber, getExplorerAddressUrl, getExplorerTxUrl, parseContractError } from '../utils/constants';
 import { LEGACY_STAKING_BANK_ABI, ERC20_ABI } from '../abi';
@@ -11,9 +11,11 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
   const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState(false);
+  const [withdrawingId, setWithdrawingId] = useState(null);
   const [userData, setUserData] = useState(null);
   const [globalData, setGlobalData] = useState(null);
   const [czBalance, setCzBalance] = useState('0');
+  const [userStakes, setUserStakes] = useState([]);
   const [refreshTick, setRefreshTick] = useState(0);
 
   const legacyBank = provider ? new ethers.Contract(LEGACY_CONTRACTS.STAKING_BANK, LEGACY_STAKING_BANK_ABI, provider) : null;
@@ -101,6 +103,31 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
       }));
       setUserData(prev => user ?? prev);
       if (userBalance !== '0') setCzBalance(userBalance);
+
+      // 加载旧合约质押记录（提取本金用）
+      if (account && legacyBank) {
+        try {
+          const stakes = await legacyBank.getUserStakes(account);
+          const lockPeriod = 15 * 24 * 60 * 60;
+          const now = Math.floor(Date.now() / 1000);
+          const parsed = (stakes.stakeIds || stakes[0] || []).map((id, i) => {
+            const startTime = Number((stakes.startTimes || stakes[3])[i]);
+            const unlockTime = startTime + lockPeriod;
+            return {
+              stakeId: Number(id),
+              amount: ethers.formatEther((stakes.amounts || stakes[1])[i]),
+              startTime,
+              unlockTime,
+              isUnlocked: now >= unlockTime,
+              active: (stakes.actives || stakes[4])[i],
+            };
+          }).filter(s => s.active);
+          setUserStakes(parsed);
+        } catch (e) {
+          console.warn('getUserStakes failed:', e);
+          setUserStakes([]);
+        }
+      }
     } catch (err) {
       console.error('Load legacy data error:', err);
     } finally {
@@ -140,6 +167,33 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
       toast.error(parseContractError(err), { id: 'legacyClaim' });
     } finally {
       setClaiming(false);
+    }
+  };
+
+  const handleWithdraw = async (stakeId) => {
+    if (!writeLegacyBank || !account) return;
+    setWithdrawingId(stakeId);
+    try {
+      let txOptions = {};
+      try {
+        const cfg = await legacyBank.getInteractionFeeConfig();
+        const feeToken = cfg.feeToken ?? cfg[0];
+        const fee = cfg.fee ?? cfg[1];
+        const native = feeToken === ethers.ZeroAddress || !feeToken || feeToken === '0x0000000000000000000000000000000000000000';
+        if (native && fee && fee > 0n) txOptions = { value: fee };
+      } catch {
+        txOptions = { value: ethers.parseEther('0.000701754385964912') };
+      }
+      const tx = await writeLegacyBank.withdraw(stakeId, { ...txOptions, gasLimit: 2000000 });
+      toast.loading(t('legacy.withdrawing'), { id: 'legacyWithdraw' });
+      await tx.wait();
+      toast.success(t('legacy.withdrawSuccess'), { id: 'legacyWithdraw' });
+      setRefreshTick(x => x + 1);
+      onRefresh?.();
+    } catch (err) {
+      toast.error(parseContractError(err), { id: 'legacyWithdraw' });
+    } finally {
+      setWithdrawingId(null);
     }
   };
 
@@ -266,6 +320,42 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
                 </p>
               )}
               <p className="mt-3 text-xs text-white/35">{t('legacy.feeNote')}</p>
+
+              {/* 我的质押本金（可提取） */}
+              <div className="mt-6 pt-5 border-t border-white/10">
+                <h3 className="font-bold text-white mb-3 flex items-center gap-2">
+                  <FiLock className="text-[#00D9A5]" />
+                  {t('legacy.myStakes')}
+                </h3>
+                {userStakes.length === 0 ? (
+                  <p className="text-xs text-white/35">{t('legacy.noStakes')}</p>
+                ) : (
+                  <div className="space-y-2">
+                    {userStakes.map((s) => (
+                      <div key={s.stakeId} className="rounded-xl p-3 bg-white/5 border border-white/10 flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-white">{formatNumber(s.amount, 4)} CZ</div>
+                          <div className="text-[11px] text-white/40 mt-0.5">
+                            {t('legacy.stakeTime')} {new Date(s.startTime * 1000).toLocaleString()}
+                            {!s.isUnlocked && (
+                              <span className="ml-2 text-[#FFB800]">{t('legacy.stakeLocked')}</span>
+                            )}
+                          </div>
+                        </div>
+                        <motion.button
+                          whileHover={{ scale: 1.04 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => handleWithdraw(s.stakeId)}
+                          disabled={withdrawingId === s.stakeId || !s.isUnlocked}
+                          className="btn-premium px-4 py-2 text-sm shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          {withdrawingId === s.stakeId ? t('legacy.withdrawing') : t('legacy.withdrawBtn')}
+                        </motion.button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </>
           )}
         </motion.div>

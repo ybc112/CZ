@@ -134,4 +134,5 @@ export const LEGACY_STAKING_BANK_ABI = [
   "function claimNodeRewards() payable",
   "function claimReferralRewards() payable",
   "function claimAll() payable",
+  "function withdraw(uint256 stakeId) payable",
 ];
