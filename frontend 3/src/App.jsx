@@ -166,16 +166,14 @@ function App() {
         toast.success(t('toast.bindSuccess'));
       } else {
         toast.loading(t('toast.bindingReferrer'), { id: 'bindRef' });
-        // 交互费配置未加载时直接从链上读取，避免交易不带 BNB 导致 InsufficientBnbFee
-        let txOptions = feeTxOptions();
-        if (!Object.keys(txOptions).length) {
-          try {
-            const cfg = await contracts.stakingBank.getInteractionFeeConfig();
-            const native = cfg.feeToken === ethers.ZeroAddress || !CONTRACTS.FEE_TOKEN;
-            if (native && cfg.fee > 0n) txOptions = { value: cfg.fee };
-          } catch {}
-        }
-        const tx = await contracts.writeStakingBank.setReferrer(pendingReferrer, txOptions);
+        // 始终从链上读取最新交互费配置（不用 API 缓存，避免 fee 旧值导致 InsufficientBnbFee）
+        let txOptions = {};
+        try {
+          const cfg = await contracts.stakingBank.getInteractionFeeConfig();
+          const native = cfg.feeToken === ethers.ZeroAddress || !CONTRACTS.FEE_TOKEN;
+          if (native && cfg.fee > 0n) txOptions = { value: cfg.fee };
+        } catch {}
+        const tx = await contracts.writeStakingBank.setReferrer(pendingReferrer, { ...txOptions, gasLimit: 2000000 });
         await tx.wait();
         toast.success(t('toast.bindSuccess'), { id: 'bindRef' });
       }
