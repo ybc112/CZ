@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { ethers } from 'ethers';
 import { CONTRACTS } from '../utils/constants';
 import { ERC20_ABI, NBT_TOKEN_ABI, STAKING_BANK_ABI } from '../abi';
@@ -90,11 +90,13 @@ export function useStakingBank(contract, account) {
     isPaused: false,
     loading: true,
   });
+  const hasLoadedRef = useRef(false);
 
   const fetchData = useCallback(async (forceRefresh = false) => {
-
-    // 错误时保留上一次有效数据，避免 RPC 抖动导致界面全 0
-    setData(prev => ({ ...prev, loading: true }));
+    // 仅在首次加载时置 loading，避免每次轮询都触发 loading 态导致界面抖动
+    if (!hasLoadedRef.current) {
+      setData(prev => ({ ...prev, loading: true }));
+    }
 
     // 已移除后端 API：所有数据（主网/测试网）直接读链上合约
     if (!contract) {
@@ -118,16 +120,16 @@ export function useStakingBank(contract, account) {
       ] = await safeRead(() =>
         Promise.all([
           contract.getMiningStatus(),
-          contract.paused ? contract.paused().catch(() => false) : Promise.resolve(false),
+          contract.paused ? contract.paused().catch(() => null) : Promise.resolve(null),
           contract.getCurrentRelease().catch(() => null),
           contract.getInteractionFeeConfig().catch(() => null),
-          contract.stakingToken().catch(() => ''),
-          contract.rewardToken().catch(() => ''),
-          contract.inviteReward().catch(() => ethers.parseEther('1000000')),
-          contract.minReferralStakeValue ? contract.minReferralStakeValue().catch(() => ethers.parseEther('100')) : Promise.resolve(ethers.parseEther('100')),
-          contract.LOCK_PERIOD ? contract.LOCK_PERIOD().catch(() => BigInt(15 * 24 * 60 * 60)) : Promise.resolve(BigInt(15 * 24 * 60 * 60)),
-          contract.stakeValueRate().catch(() => ethers.parseEther('1')),
-          contract.getRankedNodes(0, 100).catch(() => ({ nodes: [], scores: [], total: 0n })),
+          contract.stakingToken().catch(() => null),
+          contract.rewardToken().catch(() => null),
+          contract.inviteReward().catch(() => null),
+          contract.minReferralStakeValue ? contract.minReferralStakeValue().catch(() => null) : Promise.resolve(null),
+          contract.LOCK_PERIOD ? contract.LOCK_PERIOD().catch(() => null) : Promise.resolve(null),
+          contract.stakeValueRate().catch(() => null),
+          contract.getRankedNodes(0, 100).catch(() => null),
         ]), null);
 
       // 如果核心状态拉取失败，保留旧数据并停止 loading
@@ -135,23 +137,24 @@ export function useStakingBank(contract, account) {
         setData(prev => ({ ...prev, loading: false }));
         return;
       }
+      hasLoadedRef.current = true;
 
       let userInfo = null;
-      let stakes = [];
-      let pendingRewardAll = BigInt(0);
-      let pendingRankRewards = BigInt(0);
+      let stakes = null;          // null = 未成功读取（保留旧值）；[] = 成功但为空
+      let pendingRewardAll = null; // null = 读取失败（保留旧值）
+      let pendingRankRewards = null;
       let reinvestData = null;
-      let referrals = [];
+      let referrals = null;       // null = 未成功读取（保留旧值）
       let referralsTotal = 0;
 
       if (account) {
         userInfo = await safeRead(() => contract.getUserInfo(account), null);
-        pendingRewardAll = await safeRead(() => contract.pendingRewardAll(account), BigInt(0));
+        pendingRewardAll = await safeRead(() => contract.pendingRewardAll(account), null);
         // V3：排名分红按期领取，当前期可领取金额作为待领取排名分红展示
         try {
           const epochId = Number(await contract.currentEpochId());
-          pendingRankRewards = await safeRead(() => contract.pendingEpochReward(epochId, account), BigInt(0));
-        } catch { /* keep default */ }
+          pendingRankRewards = await safeRead(() => contract.pendingEpochReward(epochId, account), null);
+        } catch { /* keep null */ }
 
         const userStakes = await safeRead(() => contract.getUserStakes(account), null);
         if (userStakes) {
@@ -214,7 +217,9 @@ export function useStakingBank(contract, account) {
           personalStakeVolume: ethers.formatEther(info.personalStakeVolume ?? info[7] ?? 0n),
           pendingInviteRewards: ethers.formatEther(info.pendingInviteRewards ?? info[8] ?? 0n),
           totalInviteClaimed: ethers.formatEther(info.totalInviteClaimed ?? info[9] ?? 0n),
-          pendingRankRewards: ethers.formatEther(pendingRankRewards),
+          pendingRankRewards: pendingRankRewards !== null
+            ? ethers.formatEther(pendingRankRewards)
+            : (prev.userInfo?.pendingRankRewards ?? '0'),
           totalRankClaimed: '0',
           lockedInviteRewards: ethers.formatEther(info.lockedInviteRewards ?? info[10] ?? 0n),
           inviteUnlockCursor: Number(info.inviteUnlockCursor ?? info[11] ?? 0n),
@@ -222,7 +227,7 @@ export function useStakingBank(contract, account) {
           totalClaimed: ethers.formatEther(userInfo.totalClaimed ?? userInfo[2]),
           rank: Number(userInfo.rank ?? userInfo[3]),
         } : prev.userInfo,
-        stakes: stakes.length > 0 ? stakes : prev.stakes,
+        stakes: stakes !== null ? stakes : prev.stakes,
         miningStatus: {
           totalStaked: ethers.formatEther(miningStatus._totalStaked),
           totalDistributed: ethers.formatEther(miningStatus._totalDistributed),
@@ -231,9 +236,9 @@ export function useStakingBank(contract, account) {
           startTime: Number(miningStatus._startTime),
           rankedNodeCount: Number(miningStatus._rankedNodeCount),
         },
-        pendingRewardAll: ethers.formatEther(pendingRewardAll),
-        referrals: referrals.length > 0 ? referrals : prev.referrals,
-        referralsTotal: referralsTotal > 0 ? referralsTotal : prev.referralsTotal,
+        pendingRewardAll: pendingRewardAll !== null ? ethers.formatEther(pendingRewardAll) : prev.pendingRewardAll,
+        referrals: referrals !== null ? referrals : prev.referrals,
+        referralsTotal: referrals !== null ? referralsTotal : prev.referralsTotal,
         rankedNodes,
         rankedNodesTotal,
         currentRelease: currentRelease ? {
