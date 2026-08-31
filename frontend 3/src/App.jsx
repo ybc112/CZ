@@ -73,7 +73,13 @@ function App() {
           contracts.stakingBank?.owner().catch(() => null),
           contracts.nbtToken?.owner().catch(() => null),
         ]);
-        setIsAdmin(owners.some(owner => owner && owner.toLowerCase() === account.toLowerCase()));
+        const isOwner = owners.some(owner => owner && owner.toLowerCase() === account.toLowerCase());
+        // operator（管理员）同样具备管理权限：开期/注资/结算/暂停等 onlyAdmin 操作
+        let isOperator = false;
+        try {
+          isOperator = await contracts.stakingBank.operators(account);
+        } catch {}
+        setIsAdmin(isOwner || isOperator);
       } catch {
         setIsAdmin(false);
       }

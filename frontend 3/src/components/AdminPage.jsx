@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ethers } from 'ethers';
 import toast from 'react-hot-toast';
-import { FiAward, FiCopy, FiPause, FiPlay, FiSettings, FiShield, FiUploadCloud } from 'react-icons/fi';
+import { FiAward, FiCopy, FiPause, FiPlay, FiSettings, FiShield, FiUploadCloud, FiUserPlus } from 'react-icons/fi';
 import { CONTRACTS, formatAddress, formatNumber, parseContractError } from '../utils/constants';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -10,6 +10,7 @@ export default function AdminPage({ account, contracts, stakingData, onRefresh }
   const [releaseAmount, setReleaseAmount] = useState('');
   const [inviteReward, setInviteReward] = useState('');
   const [stakeValueRate, setStakeValueRate] = useState('');
+  const [operatorAddr, setOperatorAddr] = useState('');
   const [isWorking, setIsWorking] = useState(false);
 
   const owner = null;
@@ -89,6 +90,31 @@ export default function AdminPage({ account, contracts, stakingData, onRefresh }
       onRefresh?.();
     } catch (err) {
       toast.error(parseContractError(err), { id: 'settleEpoch' });
+    } finally {
+      setIsWorking(false);
+    }
+  };
+
+  const setOperator = async (status) => {
+    if (!isReady || !operatorAddr) return;
+    if (!ethers.isAddress(operatorAddr)) {
+      toast.error('请输入有效的钱包地址');
+      return;
+    }
+    if (operatorAddr.toLowerCase() === account.toLowerCase()) {
+      toast.error('不能设置自己');
+      return;
+    }
+    setIsWorking(true);
+    try {
+      const tx = await contracts.writeStakingBank.setOperator(operatorAddr, status);
+      toast.loading(status ? '正在添加管理员…' : '正在移除管理员…', { id: 'setOperator' });
+      await tx.wait();
+      toast.success(status ? '管理员已添加' : '管理员已移除', { id: 'setOperator' });
+      setOperatorAddr('');
+      onRefresh?.();
+    } catch (err) {
+      toast.error(parseContractError(err), { id: 'setOperator' });
     } finally {
       setIsWorking(false);
     }
@@ -230,6 +256,27 @@ export default function AdminPage({ account, contracts, stakingData, onRefresh }
           <div className="mt-5 grid sm:grid-cols-[1fr_auto] gap-3">
             <input className="input-premium" value={inviteReward} onChange={(e) => setInviteReward(e.target.value)} placeholder={t('cz.admin.inviteRewardPlaceholder')} />
             <button onClick={updateInviteReward} disabled={isWorking || inviteReward === ''} className="btn-ghost disabled:opacity-50">{t('cz.admin.save')}</button>
+          </div>
+
+          {/* 管理员（operator）管理 */}
+          <div className="mt-6 pt-5 border-t border-white/10">
+            <h3 className="text-base font-bold text-white mb-3 flex items-center gap-2">
+              <FiUserPlus className="text-[#00D9A5]" />
+              管理员管理（operator）
+            </h3>
+            <p className="text-xs text-white/40 mb-3">管理员可执行开期、注资、结算、暂停等操作（仅合约 owner 可添加/移除管理员）。</p>
+            <div className="grid sm:grid-cols-[1fr_auto] gap-3">
+              <input
+                className="input-premium font-mono text-sm"
+                value={operatorAddr}
+                onChange={(e) => setOperatorAddr(e.target.value)}
+                placeholder="输入要授权/移除的钱包地址 0x..."
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              <button onClick={() => setOperator(true)} disabled={isWorking || !operatorAddr} className="btn-premium disabled:opacity-50"><span>授权为管理员</span></button>
+              <button onClick={() => setOperator(false)} disabled={isWorking || !operatorAddr} className="btn-ghost disabled:opacity-50">移除管理员</button>
+            </div>
           </div>
         </div>
       </section>
