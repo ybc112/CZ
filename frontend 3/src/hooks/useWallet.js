@@ -1,14 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
-import { CURRENT_NETWORK, EXPECTED_CHAIN_ID, API_BASE_URL } from '../utils/constants';
+import { CURRENT_NETWORK, EXPECTED_CHAIN_ID } from '../utils/constants';
 
 const createDefaultProvider = async () => {
-  const proxyRpcUrl = typeof window !== 'undefined' && import.meta.env.PROD
-    ? `${API_BASE_URL}/api/rpc`
-    : null;
-  const rpcUrls = proxyRpcUrl
-    ? [proxyRpcUrl, ...CURRENT_NETWORK.rpcUrls]
-    : CURRENT_NETWORK.rpcUrls;
+  // 已移除后端 RPC 代理：直接使用链上 RPC 节点列表
+  const rpcUrls = CURRENT_NETWORK.rpcUrls;
   const errors = [];
 
   for (const url of rpcUrls) {

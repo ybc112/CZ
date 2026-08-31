@@ -27,9 +27,6 @@ const mainnetSafeAddress = (value, fallback) => {
   return value;
 };
 
-// 后端 API 地址：生产环境走 Cloudflare 隧道直达服务器（带缓存），开发环境走 Vite 代理
-export const API_BASE_URL = 'https://cz-api.kimi-vault.com';
-
 export const CONTRACTS = {
   NBT_TOKEN: mainnetSafeAddress(import.meta.env.VITE_NBT_TOKEN, MAINNET_CONTRACTS.NBT_TOKEN),
   STAKING_BANK: mainnetSafeAddress(import.meta.env.VITE_STAKING_BANK, MAINNET_CONTRACTS.STAKING_BANK),
@@ -69,8 +66,9 @@ export const NETWORKS = {
       symbol: 'BNB',
       decimals: 18,
     },
-    // 优先使用中国大陆可访问的节点；官方节点保留为 fallback
+    // 优先使用中国大陆可访问的节点；QuikNode 私有节点优先，官方节点保留为 fallback
     rpcUrls: [
+      'https://bitter-old-frog.bsc.quiknode.pro/f4ae6360d1ac5cfb9ed35857f574f0a5449352d3',
       'https://bsc.publicnode.com',
       'https://bsc-dataseed.binance.org/',
       'https://bsc-dataseed1.binance.org/',

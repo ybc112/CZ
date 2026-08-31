@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
-import { CONTRACTS, API_BASE_URL } from '../utils/constants';
+import { CONTRACTS } from '../utils/constants';
 import { ERC20_ABI, NBT_TOKEN_ABI, STAKING_BANK_ABI } from '../abi';
 
 const retryCall = async (fn, retries = 3, delay = 1000) => {
@@ -22,45 +22,6 @@ const safeRead = async (fn, fallback) => {
     return fallback;
   }
 };
-
-const fetchStakingSnapshot = async (account, refresh = false) => {
-  const params = new URLSearchParams();
-  if (account) params.set('account', account);
-  if (refresh) params.set('refresh', '1');
-  const query = params.toString();
-  const response = await fetch(`${API_BASE_URL}/api/staking${query ? `?${query}` : ''}`, {
-    cache: 'no-store',
-    headers: { Accept: 'application/json' },
-  });
-  const payload = await response.json();
-  if (!response.ok || !payload?.ok || !payload?.data) {
-    throw new Error(payload?.message || payload?.error || 'Staking cache API unavailable');
-  }
-  return payload.data;
-};
-
-const applyStakingSnapshot = (prev, snapshot) => ({
-  ...prev,
-  userInfo: snapshot.userInfo ?? null,
-  stakes: snapshot.stakes ?? [],
-  miningStatus: snapshot.miningStatus ?? prev.miningStatus,
-  pendingRewardAll: snapshot.pendingRewardAll ?? '0',
-  referrals: snapshot.referrals ?? [],
-  referralsTotal: snapshot.referralsTotal ?? 0,
-  rankedNodes: snapshot.rankedNodes ?? prev.rankedNodes,
-  rankedNodesTotal: snapshot.rankedNodesTotal ?? prev.rankedNodesTotal,
-  currentRelease: snapshot.currentRelease ?? prev.currentRelease,
-  interactionFeeConfig: snapshot.interactionFeeConfig ?? prev.interactionFeeConfig,
-  stakingTokenAddress: snapshot.stakingTokenAddress || prev.stakingTokenAddress,
-  rewardTokenAddress: snapshot.rewardTokenAddress || prev.rewardTokenAddress,
-  inviteReward: snapshot.inviteReward || prev.inviteReward,
-  minReferralStakeValue: snapshot.minReferralStakeValue || prev.minReferralStakeValue,
-  lockPeriod: snapshot.lockPeriod || prev.lockPeriod,
-  stakeValueRate: snapshot.stakeValueRate || prev.stakeValueRate,
-  isPaused: typeof snapshot.isPaused === 'boolean' ? snapshot.isPaused : prev.isPaused,
-  apiCache: snapshot.cache || null,
-  loading: false,
-});
 
 export function useContracts(signer, provider) {
   const [contracts, setContracts] = useState({
@@ -135,37 +96,7 @@ export function useStakingBank(contract, account) {
     // 错误时保留上一次有效数据，避免 RPC 抖动导致界面全 0
     setData(prev => ({ ...prev, loading: true }));
 
-    // 测试网环境：线上后端仍是主网配置，直接读链上，避免拿到旧合约数据
-    const isTestnet = (import.meta.env.VITE_CHAIN_ID || '0x38') === '0x61';
-    if (!isTestnet) {
-      try {
-        const snapshot = await fetchStakingSnapshot(account, forceRefresh);
-        // API 服务器可能配置了与前端不一致的合约（如业务版合约 / 旧合约）。
-        // 校验 API 返回的质押币与前端配置一致；不一致说明数据源不可信，
-        // 改读链上真实合约，避免展示数据、排行榜、交互费全部错乱。
-        const apiToken = (snapshot?.stakingTokenAddress || '').toLowerCase();
-        const expectedToken = (CONTRACTS.NBT_TOKEN || '').toLowerCase();
-        if (expectedToken && (!apiToken || apiToken !== expectedToken)) {
-          throw new Error(`Staking API token mismatch (api=${apiToken || 'empty'}, expected=${expectedToken})`);
-        }
-        // 服务器返回的是旧缓存（RPC 全挂时的兜底数据）：自动带 refresh=1 重试一次，跳过缓存直接读链上
-        if (!forceRefresh && snapshot?.cache?.stale) {
-          console.warn('Staking API returned stale cache, retrying with refresh=1');
-          try {
-            const fresh = await fetchStakingSnapshot(account, true);
-            setData(prev => applyStakingSnapshot(prev, fresh));
-            return;
-          } catch (retryError) {
-            console.warn('Stale cache refresh failed, using stale snapshot:', retryError);
-          }
-        }
-        setData(prev => applyStakingSnapshot(prev, snapshot));
-        return;
-      } catch (apiError) {
-        console.warn('Staking cache API failed, falling back to direct contract reads:', apiError);
-      }
-    }
-
+    // 已移除后端 API：所有数据（主网/测试网）直接读链上合约
     if (!contract) {
       setData(prev => ({ ...prev, loading: false }));
       return;
