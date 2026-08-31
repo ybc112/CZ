@@ -140,6 +140,14 @@ export function useStakingBank(contract, account) {
     if (!isTestnet) {
       try {
         const snapshot = await fetchStakingSnapshot(account, forceRefresh);
+        // API 服务器可能配置了与前端不一致的合约（如业务版合约 / 旧合约）。
+        // 校验 API 返回的质押币与前端配置一致；不一致说明数据源不可信，
+        // 改读链上真实合约，避免展示数据、排行榜、交互费全部错乱。
+        const apiToken = (snapshot?.stakingTokenAddress || '').toLowerCase();
+        const expectedToken = (CONTRACTS.NBT_TOKEN || '').toLowerCase();
+        if (expectedToken && (!apiToken || apiToken !== expectedToken)) {
+          throw new Error(`Staking API token mismatch (api=${apiToken || 'empty'}, expected=${expectedToken})`);
+        }
         // 服务器返回的是旧缓存（RPC 全挂时的兜底数据）：自动带 refresh=1 重试一次，跳过缓存直接读链上
         if (!forceRefresh && snapshot?.cache?.stale) {
           console.warn('Staking API returned stale cache, retrying with refresh=1');

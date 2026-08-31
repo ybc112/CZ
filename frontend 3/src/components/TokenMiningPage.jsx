@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ethers } from 'ethers';
 import toast from 'react-hot-toast';
@@ -62,10 +62,33 @@ export default function TokenMiningPage({
   const userInfo = stakingData?.userInfo;
   const miningStatus = stakingData?.miningStatus;
   const feeAmount = stakingData?.interactionFeeConfig?.fee || '0.4';
-  const isNativeFee = stakingData?.interactionFeeConfig?.feeToken === ethers.ZeroAddress || !CONTRACTS.FEE_TOKEN;
+  // 交互费始终以链上实时配置为准（API 可能缓存旧值或指向其它合约，导致 value 不足而回滚）
+  const [chainFee, setChainFee] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    setChainFee(null);
+    if (contracts?.stakingBank) {
+      contracts.stakingBank.getInteractionFeeConfig()
+        .then((cfg) => {
+          if (cancelled) return;
+          const feeToken = cfg.feeToken ?? cfg[0];
+          const fee = cfg.fee ?? cfg[1];
+          setChainFee({
+            isNative: !feeToken || feeToken === ethers.ZeroAddress,
+            fee: fee ? ethers.formatEther(fee) : '0',
+          });
+        })
+        .catch(() => {});
+    }
+    return () => { cancelled = true; };
+  }, [contracts?.stakingBank, account]);
+  const isNativeFee = chainFee
+    ? chainFee.isNative
+    : (stakingData?.interactionFeeConfig?.feeToken === ethers.ZeroAddress || !CONTRACTS.FEE_TOKEN);
+  const effectiveFee = chainFee ? chainFee.fee : feeAmount;
   const hasReferrer = userInfo?.referrer && userInfo.referrer !== ZERO;
   const needsStakeApproval = parseFloat(stakingAllowance || '0') < parseFloat(stakeAmount || '0');
-  const needsFeeApproval = !isNativeFee && parseFloat(feeAllowance || '0') < parseFloat(feeAmount || '0');
+  const needsFeeApproval = !isNativeFee && parseFloat(feeAllowance || '0') < parseFloat(effectiveFee || '0');
   const pendingRewardsAmount = userInfo?.pendingRewards || '0';
   const pendingRewardsNumber = parseFloat(pendingRewardsAmount || '0');
   const reinvestPreview = stakingData?.reinvestPreview;
@@ -108,8 +131,8 @@ export default function TokenMiningPage({
   };
 
   const feeTxOptions = () => (
-    isNativeFee && parseFloat(feeAmount || '0') > 0
-      ? { value: ethers.parseEther(feeAmount) }
+    isNativeFee && parseFloat(effectiveFee || '0') > 0
+      ? { value: ethers.parseEther(effectiveFee) }
       : {}
   );
 
