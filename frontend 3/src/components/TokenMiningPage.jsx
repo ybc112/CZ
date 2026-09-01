@@ -56,6 +56,7 @@ export default function TokenMiningPage({
   const [isCompounding, setIsCompounding] = useState(false);
   const [withdrawingStakeId, setWithdrawingStakeId] = useState(null);
   const [isClaiming, setIsClaiming] = useState(false);
+  const [isClaimingRank, setIsClaimingRank] = useState(false);
   const [copied, setCopied] = useState(false);
   const [manualCopyLink, setManualCopyLink] = useState(null);
 
@@ -293,6 +294,24 @@ export default function TokenMiningPage({
       toast.error(parseContractError(err), { id: 'claimNode' });
     } finally {
       setIsClaiming(false);
+    }
+  };
+
+  // 节点排名分红按 15 天期结算，需通过 claimEpochReward 单独领取（当前未结算且处于领取窗口的期）
+  const handleClaimRank = async () => {
+    if (!contracts?.writeStakingBank) return;
+    if (!(await ensureNetwork())) return;
+    setIsClaimingRank(true);
+    try {
+      const tx = await contracts.writeStakingBank.claimEpochReward({ ...feeTxOptions(), gasLimit: 3000000 });
+      toast.loading('正在领取排名分红…', { id: 'claimRank' });
+      await tx.wait();
+      toast.success('排名分红领取成功', { id: 'claimRank' });
+      onRefresh?.();
+    } catch (err) {
+      toast.error(parseContractError(err), { id: 'claimRank' });
+    } finally {
+      setIsClaimingRank(false);
     }
   };
 
@@ -578,6 +597,13 @@ export default function TokenMiningPage({
               <div className="p-4 rounded-xl bg-white/5 border border-white/5">
                 <div className="text-white/45 text-sm">{t('cz.node.rankPending')}</div>
                 <div className="text-2xl font-bold text-[#FFB800]">{formatNumber(userInfo?.pendingRankRewards, 4)} CZ</div>
+                <button
+                  onClick={handleClaimRank}
+                  disabled={!account || isClaimingRank || isCompounding || isClaiming || activeRelease || !(parseFloat(userInfo?.pendingRankRewards || '0') > 0)}
+                  className="mt-2 w-full px-3 py-1.5 rounded-lg bg-[#FFB800]/15 border border-[#FFB800]/30 text-[#FFB800] text-xs hover:bg-[#FFB800]/25 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {activeRelease ? '结算中，暂不可领取' : isClaimingRank ? '领取中…' : '领取排名分红'}
+                </button>
               </div>
             </div>
 
