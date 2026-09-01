@@ -11,6 +11,7 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
   const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState(false);
+  const [claimingRank, setClaimingRank] = useState(false);
   const [withdrawingId, setWithdrawingId] = useState(null);
   const [userData, setUserData] = useState(null);
   const [globalData, setGlobalData] = useState(null);
@@ -170,6 +171,34 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
     }
   };
 
+  // 旧版排名分红领取：旧合约 claimAll 会一并领取邀请奖励 + 排名分红
+  const handleClaimRank = async () => {
+    if (!writeLegacyBank || !account) return;
+    setClaimingRank(true);
+    try {
+      let txOptions = {};
+      try {
+        const cfg = await legacyBank.getInteractionFeeConfig();
+        const feeToken = cfg.feeToken ?? cfg[0];
+        const fee = cfg.fee ?? cfg[1];
+        const native = feeToken === ethers.ZeroAddress || !feeToken || feeToken === '0x0000000000000000000000000000000000000000';
+        if (native && fee && fee > 0n) txOptions = { value: fee };
+      } catch (e) {
+        txOptions = { value: ethers.parseEther('0.000701754385964912') };
+      }
+      const tx = await writeLegacyBank.claimAll({ ...txOptions, gasLimit: 2000000 });
+      toast.loading('正在领取排名分红…', { id: 'legacyClaimRank' });
+      await tx.wait();
+      toast.success('排名分红（含邀请奖励）领取成功', { id: 'legacyClaimRank' });
+      setRefreshTick(x => x + 1);
+      onRefresh?.();
+    } catch (err) {
+      toast.error(parseContractError(err), { id: 'legacyClaimRank' });
+    } finally {
+      setClaimingRank(false);
+    }
+  };
+
   const handleWithdraw = async (stakeId) => {
     if (!writeLegacyBank || !account) return;
     setWithdrawingId(stakeId);
@@ -279,6 +308,13 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
                   <div className="text-[11px] text-white/45 mb-1">{t('legacy.rankPending')}</div>
                   <div className="text-xl md:text-2xl font-bold text-white">{formatNumber(rankPending)}</div>
                   <div className="text-[11px] text-white/35">CZ</div>
+                  <button
+                    onClick={handleClaimRank}
+                    disabled={claimingRank || claiming || parseFloat(rankPending) <= 0}
+                    className="mt-2 w-full px-3 py-1.5 rounded-lg bg-[#FFB800]/15 border border-[#FFB800]/30 text-[#FFB800] text-xs hover:bg-[#FFB800]/25 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {claimingRank ? '领取中…' : '领取排名分红'}
+                  </button>
                 </div>
                 <div className="rounded-xl p-4 bg-white/5 border border-white/10 text-center">
                   <div className="text-[11px] text-white/45 mb-1">{t('legacy.myStaked')}</div>
