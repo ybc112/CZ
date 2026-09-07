@@ -431,6 +431,7 @@ export default function TokenMiningPage({
                     <div className="min-w-0">
                       <div className="text-xs text-[#00D9A5]">{t('cz.node.referrerAutoFilled')}</div>
                       <div className="font-mono text-sm text-white truncate">{formatAddress(referrerInput)}</div>
+                      <div className="text-xs text-white/40 mt-1">链上未绑定，质押时将随交易一并绑定</div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <button
@@ -486,13 +487,13 @@ export default function TokenMiningPage({
             <div className="grid grid-cols-1 gap-3 text-sm">
               <div className="p-3 rounded-xl bg-white/5 border border-white/5">
                 <div className="text-white/40">{t('cz.node.inviteStakeReward')}</div>
-                <div className="text-[#00D9A5] font-semibold">{formatFullAmount(stakingData?.inviteReward || '1000000')} CZ / {t('cz.common.person')}</div>
+                <div className="text-[#00D9A5] font-semibold">{formatFullAmount('1000000')} CZ / {t('cz.common.person')}</div>
               </div>
               <div className="p-3 rounded-xl bg-[#00D9A5]/10 border border-[#00D9A5]/20 text-white/70 leading-relaxed">
                 <div>质押15天，解锁后自由操作</div>
                 <div>点击复投，质押周期自动延续15天</div>
                 <div>排名权益持续生效，奖励自动累积</div>
-                <div>邀请人成功质押满 {formatNumber(minReferralStakeValue, 2)}U 价值代币，获得 {formatFullAmount(stakingData?.inviteReward || '1000000')} CZ 奖励，质押到期后可领取</div>
+                <div>邀请人成功质押满 {formatNumber(minReferralStakeValue, 2)}U 价值代币，获得 {formatFullAmount('1000000')} CZ 奖励，质押到期后可领取</div>
               </div>
             </div>
 
