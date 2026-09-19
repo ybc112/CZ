@@ -70,7 +70,7 @@ contract NBTStakingBankV3 {
     uint256 public constant MAX_ACTIVE_STAKES = 50;
     uint256 public constant MAX_REFERRAL_DEPTH = 20;
     uint256 public constant LOCK_PERIOD = 15 days;
-    uint256 public constant DISPLAY_PERIOD = 3 days;
+    uint256 public constant DISPLAY_PERIOD = 0;
     uint256 public constant CLAIM_PERIOD = 7 days;
     uint256 public constant MIN_NODES = 10;
     uint256 public constant DEFAULT_INVITE_REWARD = 1_000_000 ether;

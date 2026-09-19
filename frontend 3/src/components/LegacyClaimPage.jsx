@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { FiArrowRight, FiDownload, FiGift, FiLock, FiShield, FiAward, FiTrendingUp, FiUsers, FiZap } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
 import { LEGACY_CONTRACTS, formatNumber, getExplorerAddressUrl, getExplorerTxUrl, parseContractError } from '../utils/constants';
-import { LEGACY_STAKING_BANK_ABI, ERC20_ABI } from '../abi';
+import { LEGACY_STAKING_BANK_ABI, STAKING_BANK_ABI, ERC20_ABI } from '../abi';
 import { useLanguage } from '../contexts/LanguageContext';
 
 export default function LegacyClaimPage({ account, provider, signer, isCorrectNetwork, onSwitchNetwork, onRefresh, onGoStake }) {
@@ -18,10 +18,13 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
   const [czBalance, setCzBalance] = useState('0');
   const [userStakes, setUserStakes] = useState([]);
   const [refreshTick, setRefreshTick] = useState(0);
+  const [legacyVersion, setLegacyVersion] = useState('V1');
 
-  const legacyBank = provider ? new ethers.Contract(LEGACY_CONTRACTS.STAKING_BANK, LEGACY_STAKING_BANK_ABI, provider) : null;
-  const writeLegacyBank = signer ? new ethers.Contract(LEGACY_CONTRACTS.STAKING_BANK, LEGACY_STAKING_BANK_ABI, signer) : null;
-  const legacyToken = provider ? new ethers.Contract(LEGACY_CONTRACTS.CZ_TOKEN, ERC20_ABI, provider) : null;
+  const legacyCfg = LEGACY_CONTRACTS[legacyVersion] || LEGACY_CONTRACTS.V1;
+  const legacyAbi = legacyVersion === 'OLD_V3' ? STAKING_BANK_ABI : LEGACY_STAKING_BANK_ABI;
+  const legacyBank = provider ? new ethers.Contract(legacyCfg.STAKING_BANK, legacyAbi, provider) : null;
+  const writeLegacyBank = signer ? new ethers.Contract(legacyCfg.STAKING_BANK, legacyAbi, signer) : null;
+  const legacyToken = provider ? new ethers.Contract(legacyCfg.CZ_TOKEN, ERC20_ABI, provider) : null;
 
   const loadData = useCallback(async () => {
     if (!provider || !legacyBank) { setLoading(false); return; }
@@ -51,31 +54,60 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
         try {
           // 链上合约 getUserInfo 实际返回 16 个命名值（不是 tuple+3 包装格式）
           const ui = await legacyBank.getUserInfo(account);
-          const raw = Object.values(ui);
-          // 按顺序：totalStaked, totalWithdrawn, stakeCount, activeStakeCount, referrer,
-          // directReferrals, referralStakeVolume, pendingInviteRewards, totalInviteClaimed,
-          // pendingRankRewards, totalRankClaimed, lockedInviteRewards, inviteUnlockCursor,
-          // pendingRewards, totalClaimed, rank
-          const info = {
-            totalStaked: raw[0],
-            totalWithdrawn: raw[1],
-            stakeCount: raw[2],
-            activeStakeCount: raw[3],
-            referrer: raw[4],
-            directReferrals: raw[5],
-            referralStakeVolume: raw[6],
-            pendingInviteRewards: raw[7],
-            totalInviteClaimed: raw[8],
-            pendingRankRewards: raw[9],
-            totalRankClaimed: raw[10],
-            lockedInviteRewards: raw[11],
-            inviteUnlockCursor: raw[12],
-          };
+          let info, pendingRewards, totalClaimed, rank;
+          if (legacyVersion === 'OLD_V3') {
+            info = {
+              totalStaked: ui.info.totalStaked,
+              totalWithdrawn: ui.info.totalWithdrawn,
+              stakeCount: ui.info.stakeCount,
+              activeStakeCount: ui.info.activeStakeCount,
+              referrer: ui.info.referrer,
+              directReferrals: ui.info.directReferrals,
+              referralStakeVolume: ui.info.referralStakeVolume,
+              personalStakeVolume: ui.info.personalStakeVolume,
+              pendingInviteRewards: ui.info.pendingInviteRewards,
+              totalInviteClaimed: ui.info.totalInviteClaimed,
+              lockedInviteRewards: ui.info.lockedInviteRewards,
+              inviteUnlockCursor: ui.info.inviteUnlockCursor,
+            };
+            pendingRewards = ui.pendingRewards;
+            totalClaimed = ui.totalClaimed;
+            rank = Number(ui.rank ?? 0);
+            // V3 排名分红按期领取：当前期待领金额填入 pendingRankRewards 供展示
+            try {
+              const ep = await legacyBank.currentEpochId();
+              info.pendingRankRewards = await legacyBank.pendingEpochReward(ep, account);
+            } catch { info.pendingRankRewards = 0n; }
+          } else {
+            const raw = Object.values(ui);
+            // 按顺序：totalStaked, totalWithdrawn, stakeCount, activeStakeCount, referrer,
+            // directReferrals, referralStakeVolume, pendingInviteRewards, totalInviteClaimed,
+            // pendingRankRewards, totalRankClaimed, lockedInviteRewards, inviteUnlockCursor,
+            // pendingRewards, totalClaimed, rank
+            info = {
+              totalStaked: raw[0],
+              totalWithdrawn: raw[1],
+              stakeCount: raw[2],
+              activeStakeCount: raw[3],
+              referrer: raw[4],
+              directReferrals: raw[5],
+              referralStakeVolume: raw[6],
+              pendingInviteRewards: raw[7],
+              totalInviteClaimed: raw[8],
+              pendingRankRewards: raw[9],
+              totalRankClaimed: raw[10],
+              lockedInviteRewards: raw[11],
+              inviteUnlockCursor: raw[12],
+            };
+            pendingRewards = raw[13];
+            totalClaimed = raw[14];
+            rank = Number(raw[15] ?? 0);
+          }
           user = {
             info,
-            pendingRewards: raw[13],
-            totalClaimed: raw[14],
-            rank: Number(raw[15] ?? 0),
+            pendingRewards,
+            totalClaimed,
+            rank,
           };
         } catch (err) {
           console.warn('getUserInfo failed:', err);
@@ -158,7 +190,9 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
         console.warn('fee config failed, defaulting BNB 0.0007:', e.message);
         txOptions = { value: ethers.parseEther('0.000701754385964912') };
       }
-      const tx = await writeLegacyBank.claimAll({ ...txOptions, gasLimit: 2000000 });
+      const tx = legacyVersion === 'OLD_V3'
+        ? await writeLegacyBank.claimNodeRewards({ ...txOptions, gasLimit: 2000000 })
+        : await writeLegacyBank.claimAll({ ...txOptions, gasLimit: 2000000 });
       toast.loading(t('legacy.claiming'), { id: 'legacyClaim' });
       await tx.wait();
       toast.success(t('legacy.claimSuccess'), { id: 'legacyClaim' });
@@ -186,7 +220,9 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
       } catch (e) {
         txOptions = { value: ethers.parseEther('0.000701754385964912') };
       }
-      const tx = await writeLegacyBank.claimAll({ ...txOptions, gasLimit: 2000000 });
+      const tx = legacyVersion === 'OLD_V3'
+        ? await writeLegacyBank.claimEpochReward({ ...txOptions, gasLimit: 2000000 })
+        : await writeLegacyBank.claimAll({ ...txOptions, gasLimit: 2000000 });
       toast.loading('正在领取排名分红…', { id: 'legacyClaimRank' });
       await tx.wait();
       toast.success('排名分红（含邀请奖励）领取成功', { id: 'legacyClaimRank' });
@@ -261,7 +297,16 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
           <p className="text-white/60 max-w-2xl leading-relaxed">{t('legacy.desc')}</p>
           <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-white/50">
             <span className="px-3 py-1 rounded-lg bg-white/5 border border-white/10">旧合约</span>
-            <a href={getExplorerAddressUrl(LEGACY_CONTRACTS.STAKING_BANK)} target="_blank" rel="noopener noreferrer" className="font-mono hover:text-[#00D9A5] transition-colors">{LEGACY_CONTRACTS.STAKING_BANK.slice(0, 10)}...{LEGACY_CONTRACTS.STAKING_BANK.slice(-6)}</a>
+            {Object.entries(LEGACY_CONTRACTS).map(([key, cfg]) => (
+              <button
+                key={key}
+                onClick={() => setLegacyVersion(key)}
+                className={`px-3 py-1 rounded-lg border transition-colors ${legacyVersion === key ? 'bg-[#FFB800]/20 border-[#FFB800]/50 text-[#FFB800]' : 'bg-white/5 border-white/10 text-white/60 hover:text-white'}`}
+              >
+                {cfg.label}
+              </button>
+            ))}
+            <a href={getExplorerAddressUrl(legacyCfg.STAKING_BANK)} target="_blank" rel="noopener noreferrer" className="font-mono hover:text-[#00D9A5] transition-colors">{legacyCfg.STAKING_BANK.slice(0, 10)}...{legacyCfg.STAKING_BANK.slice(-6)}</a>
           </div>
         </div>
       </motion.section>
