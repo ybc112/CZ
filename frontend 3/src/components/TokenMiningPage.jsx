@@ -352,7 +352,7 @@ export default function TokenMiningPage({
     setIsClaimingRank(true);
     try {
       await ensureVaultAllowance();
-      const tx = await contracts.writeStakingBank.claimEpochReward({ ...feeTxOptions(), gasLimit: 3000000 });
+      const tx = await contracts.writeStakingBank['claimEpochReward()']({ ...feeTxOptions(), gasLimit: 3000000 });
       toast.loading('正在领取排名分红…', { id: 'claimRank' });
       await tx.wait();
       toast.success('排名分红领取成功', { id: 'claimRank' });

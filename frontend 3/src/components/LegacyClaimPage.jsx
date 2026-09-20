@@ -233,7 +233,7 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
         txOptions = { value: ethers.parseEther('0.000701754385964912') };
       }
       const tx = legacyVersion === 'OLD_V3'
-        ? await writeLegacyBank.claimEpochReward({ ...txOptions, gasLimit: 2000000 })
+        ? await writeLegacyBank['claimEpochReward()']({ ...txOptions, gasLimit: 2000000 })
         : await writeLegacyBank.claimAll({ ...txOptions, gasLimit: 2000000 });
       toast.loading('正在领取排名分红…', { id: 'legacyClaimRank' });
       await tx.wait();
