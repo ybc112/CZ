@@ -66,7 +66,8 @@ export function useWallet() {
     };
   }, []);
 
-  const provider = walletProvider || defaultProvider;
+  // 读数据统一走 MultiRpcProvider（多节点容错）；walletProvider 仅用于签名/写交易
+  const provider = defaultProvider || walletProvider;
 
   const disconnect = useCallback(() => {
     setAccount(null);
