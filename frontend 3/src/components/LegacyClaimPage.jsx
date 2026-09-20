@@ -40,13 +40,14 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
         legacyBank.totalInviteRewardsClaimed(),
       ]);
 
-      const paused = results[0].status === 'fulfilled' ? results[0].value : false;
+      // 失败（rejected）时置 null，由 setGlobalData 保留旧值，避免轮询时数据跳动
+      const paused = results[0].status === 'fulfilled' ? results[0].value : null;
       const miningStatus = results[1].status === 'fulfilled' ? results[1].value : null;
-      const epochId = results[2].status === 'fulfilled' ? results[2].value : 0n;
-      const totalRankDist = results[3].status === 'fulfilled' ? results[3].value : 0n;
-      const totalRankClaimed = results[4].status === 'fulfilled' ? results[4].value : 0n;
-      const totalInviteAcc = results[5].status === 'fulfilled' ? results[5].value : 0n;
-      const totalInviteClaimed = results[6].status === 'fulfilled' ? results[6].value : 0n;
+      const epochId = results[2].status === 'fulfilled' ? results[2].value : null;
+      const totalRankDist = results[3].status === 'fulfilled' ? results[3].value : null;
+      const totalRankClaimed = results[4].status === 'fulfilled' ? results[4].value : null;
+      const totalInviteAcc = results[5].status === 'fulfilled' ? results[5].value : null;
+      const totalInviteClaimed = results[6].status === 'fulfilled' ? results[6].value : null;
 
       let user = null;
       let userBalance = '0';
@@ -120,7 +121,7 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
       // 当前活跃期（未结算）奖池中未领取的部分，一并计入「待领排名分红」
       // 否则 epoch 未结算时 totalRankDistributed=0，会误显示为 0
       let activePoolUnclaimed = 0n;
-      if (legacyVersion === 'OLD_V3' && epochId > 0n) {
+      if (legacyVersion === 'OLD_V3' && epochId) {
         try {
           const ep = await legacyBank.getEpoch(epochId);
           if (!ep.settled && !ep.disabled && ep.poolAmount > ep.totalClaimed) {
@@ -130,7 +131,7 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
       }
 
       setGlobalData(prev => ({
-        paused,
+        paused: paused === null ? (prev?.paused ?? false) : paused,
         miningStatus: miningStatus ? {
           totalStaked: ethers.formatEther(miningStatus._totalStaked ?? miningStatus[0] ?? 0n),
           totalDistributed: ethers.formatEther(miningStatus._totalDistributed ?? miningStatus[1] ?? 0n),
@@ -138,13 +139,17 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
           releaseInProgress: miningStatus._releaseInProgress ?? miningStatus[3] ?? false,
           rankedNodeCount: Number(miningStatus._rankedNodeCount ?? miningStatus[5] ?? 0),
         } : prev?.miningStatus ?? null,
-        epochId: Number(epochId),
-        totalRankDistributed: ethers.formatEther(totalRankDist),
-        totalRankClaimed: ethers.formatEther(totalRankClaimed),
-        totalInviteAccrued: ethers.formatEther(totalInviteAcc),
-        totalInviteClaimed: ethers.formatEther(totalInviteClaimed),
-        unclaimedRank: ethers.formatEther(totalRankDist - totalRankClaimed + activePoolUnclaimed),
-        unclaimedInvite: ethers.formatEther(totalInviteAcc - totalInviteClaimed),
+        epochId: epochId === null ? (prev?.epochId ?? 0) : Number(epochId),
+        totalRankDistributed: totalRankDist !== null ? ethers.formatEther(totalRankDist) : (prev?.totalRankDistributed ?? '0'),
+        totalRankClaimed: totalRankClaimed !== null ? ethers.formatEther(totalRankClaimed) : (prev?.totalRankClaimed ?? '0'),
+        totalInviteAccrued: totalInviteAcc !== null ? ethers.formatEther(totalInviteAcc) : (prev?.totalInviteAccrued ?? '0'),
+        totalInviteClaimed: totalInviteClaimed !== null ? ethers.formatEther(totalInviteClaimed) : (prev?.totalInviteClaimed ?? '0'),
+        unclaimedRank: totalRankDist !== null && totalRankClaimed !== null
+          ? ethers.formatEther(totalRankDist - totalRankClaimed + activePoolUnclaimed)
+          : (prev?.unclaimedRank ?? '0'),
+        unclaimedInvite: totalInviteAcc !== null && totalInviteClaimed !== null
+          ? ethers.formatEther(totalInviteAcc - totalInviteClaimed)
+          : (prev?.unclaimedInvite ?? '0'),
       }));
       setUserData(prev => user ?? prev);
       if (userBalance !== '0') setCzBalance(userBalance);
