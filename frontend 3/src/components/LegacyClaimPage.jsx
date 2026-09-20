@@ -75,10 +75,11 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
             totalClaimed = ui.totalClaimed;
             rank = Number(ui.rank ?? 0);
             // V3 排名分红按期领取：当前期待领金额填入 pendingRankRewards 供展示
+            // 读取失败时置 null，由 setUserData 保留旧值，避免轮询时数字跳动
             try {
               const ep = await legacyBank.currentEpochId();
               info.pendingRankRewards = await legacyBank.pendingEpochReward(ep, account);
-            } catch { info.pendingRankRewards = 0n; }
+            } catch { info.pendingRankRewards = null; }
           } else {
             const raw = Object.values(ui);
             // 按顺序：totalStaked, totalWithdrawn, stakeCount, activeStakeCount, referrer,
@@ -151,7 +152,12 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
           ? ethers.formatEther(totalInviteAcc - totalInviteClaimed)
           : (prev?.unclaimedInvite ?? '0'),
       }));
-      setUserData(prev => user ?? prev);
+      setUserData(prev => user ? {
+        ...user,
+        info: user.info?.pendingRankRewards == null
+          ? { ...user.info, pendingRankRewards: prev?.info?.pendingRankRewards ?? 0n }
+          : user.info,
+      } : prev);
       if (userBalance !== '0') setCzBalance(userBalance);
 
       // 加载旧合约质押记录（提取本金用）
