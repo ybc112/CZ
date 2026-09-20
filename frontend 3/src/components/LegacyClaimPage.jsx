@@ -117,6 +117,18 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
         }
       }
 
+      // 当前活跃期（未结算）奖池中未领取的部分，一并计入「待领排名分红」
+      // 否则 epoch 未结算时 totalRankDistributed=0，会误显示为 0
+      let activePoolUnclaimed = 0n;
+      if (legacyVersion === 'OLD_V3' && epochId > 0n) {
+        try {
+          const ep = await legacyBank.getEpoch(epochId);
+          if (!ep.settled && !ep.disabled && ep.poolAmount > ep.totalClaimed) {
+            activePoolUnclaimed = ep.poolAmount - ep.totalClaimed;
+          }
+        } catch { /* 读取失败则不计入 */ }
+      }
+
       setGlobalData(prev => ({
         paused,
         miningStatus: miningStatus ? {
@@ -131,7 +143,7 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
         totalRankClaimed: ethers.formatEther(totalRankClaimed),
         totalInviteAccrued: ethers.formatEther(totalInviteAcc),
         totalInviteClaimed: ethers.formatEther(totalInviteClaimed),
-        unclaimedRank: ethers.formatEther(totalRankDist - totalRankClaimed),
+        unclaimedRank: ethers.formatEther(totalRankDist - totalRankClaimed + activePoolUnclaimed),
         unclaimedInvite: ethers.formatEther(totalInviteAcc - totalInviteClaimed),
       }));
       setUserData(prev => user ?? prev);

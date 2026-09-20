@@ -1,31 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { CURRENT_NETWORK, EXPECTED_CHAIN_ID } from '../utils/constants';
+import { MultiRpcProvider } from '../utils/rpc';
 
 const createDefaultProvider = async () => {
-  // 已移除后端 RPC 代理：直接使用链上 RPC 节点列表
+  // 已移除后端 RPC 代理：直接使用链上 RPC 节点列表，多节点自动切换（MultiRpcProvider）
   const rpcUrls = CURRENT_NETWORK.rpcUrls;
-  const errors = [];
-
-  for (const url of rpcUrls) {
-    try {
-      const provider = new ethers.JsonRpcProvider(url, undefined, {
-        staticNetwork: true,
-        requestTimeout: 6000,
-      });
-      await provider.getBlockNumber();
-      return provider;
-    } catch (err) {
-      errors.push(`${url}: ${err?.message || err}`);
-    }
+  try {
+    const provider = new MultiRpcProvider(rpcUrls, { requestTimeout: 8000 });
+    await provider.getBlockNumber();
+    return provider;
+  } catch (err) {
+    console.error('All RPC nodes failed:', err?.message || err);
+    return new MultiRpcProvider(rpcUrls, { requestTimeout: 8000 });
   }
-
-  console.error('All RPC nodes failed:', errors);
-  const fallback = new ethers.JsonRpcProvider(rpcUrls[0], undefined, {
-    staticNetwork: true,
-    requestTimeout: 6000,
-  });
-  return fallback;
 };
 
 const parseChainId = (value) => {
