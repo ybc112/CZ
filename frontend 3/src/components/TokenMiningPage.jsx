@@ -195,6 +195,19 @@ export default function TokenMiningPage({
       toast.error(t('cz.node.referrerRequired'));
       return;
     }
+    // 前置检查：CZ 授权额度（避免交易到合约才 revert，直接给出明确指引）
+    if (parseFloat(stakingAllowance || '0') < amountNumber) {
+      toast.error('CZ 授权额度不足，请先点击「授权 CZ」按钮完成授权后再质押');
+      return;
+    }
+    // 前置检查：BNB 交互费 + gas
+    try {
+      const bal = await signer.provider.getBalance(account);
+      if (bal < ethers.parseEther('0.001')) {
+        toast.error('钱包 BNB 不足，请至少充值 0.001 BNB（0.00065 交互费 + gas）');
+        return;
+      }
+    } catch { /* 读取失败不阻断，交给合约兜底 */ }
     setIsStaking(true);
     try {
       const tx = await contracts.writeStakingBank.stake(ethers.parseEther(stakeAmount), selectedReferrer, { ...feeTxOptions(), gasLimit: 3000000 });
