@@ -163,6 +163,64 @@ export const CONTRACT_ERRORS = {
   'could not coalesce error': '钱包返回异常，交易可能已经提交，请刷新页面或在钱包交易记录中确认',
 };
 
+// 质押合约自定义错误（error 类型，只带 4 字节选择器、没有 reason 文本）。
+// 不映射的话 ethers 只能给出 "execution reverted (unknown custom error)"，
+// 前端最终兜底成「交易执行失败」，用户无法判断原因。
+export const CUSTOM_ERROR_SELECTORS = {
+  // 推荐人相关
+  '0x5359877d': '首次质押必须绑定推荐人：请填写推荐人地址（或通过推荐链接进入本页）后重试',
+  '0xae3550e8': '您已经绑定过推荐人，无法更改',
+  '0x61104228': '推荐人地址无效',
+  '0xd1affa92': '不能把自己设为推荐人',
+  '0xa8c0bcbf': '不允许循环推荐（该地址在你的推荐链上）',
+  // 质押相关
+  '0x479abd56': '活跃质押笔数已达上限（50 笔），请先提现已到期的仓位再质押',
+  '0x2c5211c6': '质押数量无效',
+  '0x8d38daef': '邀请奖励储备不足，请先给质押合约充值奖励',
+  '0x9671a89f': '未收到任何代币，请确认 CZ 授权额度与余额',
+  '0xd02e0b27': 'BNB 交互费不足，请确保钱包有足够 BNB',
+  '0x584c1fcb': '当前操作不需要附带 BNB',
+  '0xab35696f': '合约已暂停',
+  '0xed3ba6a6': '操作过于频繁，请稍后重试',
+  '0xb0dd466e': '该质押记录已失效',
+  '0x212a7e79': '锁仓期未结束（15 天），暂不能提取',
+  // 复投 / 提取
+  '0x881f3fc8': '暂无可复投资产（邀请奖励 / 排名分红 / 到期本金）',
+  // 分红期相关
+  '0xc7bbad56': '当前没有进行中的分红期',
+  '0xe2b008a9': '该分红期不存在',
+  '0x560ff900': '该分红期尚未到结算时间',
+  '0x5964fee2': '该分红期已结算',
+  '0xa940b71f': '领取期还未开始',
+  '0x524c21ad': '不在领取窗口内（快照后 7 天内可领取）',
+  '0x3a8a38d7': '当前地址不在本期快照节点内',
+  '0x646cf558': '本期奖励已领取过',
+  '0x6e992686': '本期可领取奖励为 0',
+  '0x3fb087f4': '暂无可领取奖励',
+  '0x5cd26b68': '当前地址不是节点',
+  '0xae958a40': '排名无效',
+  '0x00bfc921': '价格源返回 0，请检查价格配置',
+  '0xba43f5bc': '当前奖励币不能直接复投',
+  '0xaba01d33': '上一期分红尚未结算',
+  '0x6bb1a18f': '本期分红已经开启',
+  '0x7ab0feb2': '该期奖池已合并到下一期',
+  // 转账 / 权限
+  '0x90b8ec18': '代币转账失败',
+  '0x7939f424': '代币划转失败，请检查授权额度',
+  '0xf4b3b1bc': 'BNB 转账失败',
+  '0xe6c4247b': '无效的地址',
+  '0xc1ab6dc1': '无效的代币地址',
+  '0x30cd7471': '只有合约 owner 可执行',
+  '0x7bfa4b9f': '只有管理员可执行',
+  '0xd200485c': '收款地址无效',
+  '0x9f3949b3': 'owner 不能加为普通管理员',
+  '0x6a43f8d1': '汇率设置无效',
+  '0x1b813803': '不能提取质押代币',
+  '0xe4ea100b': '不能提取奖励代币',
+  '0x673c48da': '不能提取交互费代币',
+  '0x807116fb': '只有待接管的新 owner 可执行',
+};
+
 const collectErrorText = (error, seen = new Set()) => {
   if (!error) return [];
   if (typeof error === 'string') return [error];
@@ -202,6 +260,19 @@ export const parseContractError = (error) => {
   if (!error) return '操作失败';
 
   const reason = collectErrorText(error).join(' | ');
+
+  // 优先解码合约自定义错误：这类错误只有 4 字节选择器、没有 reason 文本，
+  // ethers 只会给出 "execution reverted (unknown custom error)"，
+  // 不先处理就会被下面的 'execution reverted' 兜底成「交易执行失败」。
+  // 用负向先行断言，避免把 40 位地址的前 8 位误判成选择器。
+  const selectors = reason.match(/0x[0-9a-fA-F]{8}(?![0-9a-fA-F])/g);
+  if (selectors) {
+    for (const selector of selectors) {
+      const mapped = CUSTOM_ERROR_SELECTORS[selector.toLowerCase()];
+      if (mapped) return mapped;
+    }
+  }
+
   const normalizedReason = reason.toLowerCase();
 
   for (const [key, value] of Object.entries(CONTRACT_ERRORS)) {

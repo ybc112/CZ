@@ -241,6 +241,12 @@ export default function TokenMiningPage({
       toast.error(t('cz.toast.noRewardsToCompound'));
       return;
     }
+    // 链上未绑定推荐人时，合约 reinvest() 会 revert MustBindReferrer()，
+    // 这里提前拦下并给出明确指引，避免用户只看到「交易执行失败」
+    if (!hasReferrer) {
+      toast.error('复投需要先绑定推荐人：请先填写推荐人地址完成一次质押后再复投');
+      return;
+    }
 
     setIsCompounding(true);
     try {
