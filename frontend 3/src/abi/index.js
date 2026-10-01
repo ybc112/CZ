@@ -21,6 +21,27 @@ export const NBT_TOKEN_ABI = [
   "function DOMAIN_SEPARATOR() view returns (bytes32)",
 ];
 
+// 独立「节点排名分红」合约（BEP-652 兼容版）
+// 原质押合约 V3 的 openEpoch 需 40.2M gas，超过 BSC 单笔上限 16,777,216，
+// 因此排名分红改由本合约发放（openEpoch 仅写排名，387 节点约 9M gas）。
+export const RANK_DISTRIBUTOR_ABI = [
+  "function currentEpochId() view returns (uint256)",
+  "function pendingCarryover() view returns (uint256)",
+  "function rewardToken() view returns (address)",
+  "function owner() view returns (address)",
+  "function epochs(uint256) view returns (uint256 snapshotTime, uint256 poolAmount, uint256 totalNodes, uint256 totalClaimed, bool settled, bool disabled)",
+  "function epochRank(uint256 epochId, address node) view returns (uint256)",
+  "function claimed(uint256 epochId, address node) view returns (bool)",
+  "function claimStart(uint256 epochId) view returns (uint256)",
+  "function claimEnd(uint256 epochId) view returns (uint256)",
+  "function pendingClaim(uint256 epochId, address node) view returns (uint256)",
+  "function pendingClaimAll(address node) view returns (uint256 total, uint256 count)",
+  "function rankShare(uint256 pool, uint256 totalNodes, uint256 rank) view returns (uint256)",
+  "function claim(uint256 epochId)",
+  "function claimAll()",
+  "event EpochRewardClaimed(uint256 indexed epochId, address indexed node, uint256 rank, uint256 amount)",
+];
+
 export const STAKING_BANK_ABI = [
   "function stakingToken() view returns (address)",
   "function rewardToken() view returns (address)",

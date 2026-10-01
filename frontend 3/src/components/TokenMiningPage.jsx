@@ -241,12 +241,6 @@ export default function TokenMiningPage({
       toast.error(t('cz.toast.noRewardsToCompound'));
       return;
     }
-    // 链上未绑定推荐人时，合约 reinvest() 会 revert MustBindReferrer()，
-    // 这里提前拦下并给出明确指引，避免用户只看到「交易执行失败」
-    if (!hasReferrer) {
-      toast.error('复投需要先绑定推荐人：请先填写推荐人地址完成一次质押后再复投');
-      return;
-    }
 
     setIsCompounding(true);
     try {
@@ -368,14 +362,17 @@ export default function TokenMiningPage({
     }
   };
 
-  // 节点排名分红按 15 天期结算，需通过 claimEpochReward 单独领取（当前未结算且处于领取窗口的期）
+  // 节点排名分红按 15 天期结算。原 V3 合约的 openEpoch 需 40.2M gas，超过 BSC 协议
+  // 单笔上限 16,777,216（BEP-652 / EIP-7825），387 个节点永远无法开期，
+  // 故排名分红改由独立分红合约 RankRewardDistributor 发放（openEpoch 仅写排名，约 9M gas）。
+  // 该合约不收取 BNB 交互费，因此不附带 value。
   const handleClaimRank = async () => {
-    if (!contracts?.writeStakingBank) return;
+    if (!contracts?.writeRankDistributor) return;
     if (!(await ensureNetwork())) return;
     setIsClaimingRank(true);
     try {
       await ensureVaultAllowance();
-      const tx = await contracts.writeStakingBank['claimEpochReward()']({ ...feeTxOptions(), gasLimit: 3000000 });
+      const tx = await contracts.writeRankDistributor.claimAll({ gasLimit: 1000000 });
       toast.loading('正在领取排名分红…', { id: 'claimRank' });
       await tx.wait();
       toast.success('排名分红领取成功', { id: 'claimRank' });

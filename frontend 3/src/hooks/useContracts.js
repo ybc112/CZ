@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { ethers } from 'ethers';
 import { CONTRACTS } from '../utils/constants';
-import { ERC20_ABI, NBT_TOKEN_ABI, STAKING_BANK_ABI } from '../abi';
+import { ERC20_ABI, NBT_TOKEN_ABI, STAKING_BANK_ABI, RANK_DISTRIBUTOR_ABI } from '../abi';
 
 const retryCall = async (fn, retries = 3, delay = 1000) => {
   for (let i = 0; i < retries; i++) {
@@ -28,9 +28,11 @@ export function useContracts(signer, provider) {
     nbtToken: null,
     feeToken: null,
     stakingBank: null,
+    rankDistributor: null,
     writeNbtToken: null,
     writeFeeToken: null,
     writeStakingBank: null,
+    writeRankDistributor: null,
   });
 
   useEffect(() => {
@@ -54,14 +56,22 @@ export function useContracts(signer, provider) {
     const writeFeeToken = CONTRACTS.FEE_TOKEN && signer
       ? new ethers.Contract(CONTRACTS.FEE_TOKEN, ERC20_ABI, signer)
       : null;
+    const rankDistributor = CONTRACTS.RANK_DISTRIBUTOR
+      ? new ethers.Contract(CONTRACTS.RANK_DISTRIBUTOR, RANK_DISTRIBUTOR_ABI, provider)
+      : null;
+    const writeRankDistributor = CONTRACTS.RANK_DISTRIBUTOR && signer
+      ? new ethers.Contract(CONTRACTS.RANK_DISTRIBUTOR, RANK_DISTRIBUTOR_ABI, signer)
+      : null;
 
     setContracts({
       nbtToken,
       feeToken,
       stakingBank,
+      rankDistributor,
       writeNbtToken,
       writeFeeToken,
       writeStakingBank,
+      writeRankDistributor,
     });
   }, [signer, provider]);
 
@@ -150,10 +160,16 @@ export function useStakingBank(contract, account) {
       if (account) {
         userInfo = await safeRead(() => contract.getUserInfo(account), null);
         pendingRewardAll = await safeRead(() => contract.pendingRewardAll(account), null);
-        // V3：排名分红按期领取，当前期可领取金额作为待领取排名分红展示
+        // 排名分红：改由独立分红合约发放（原 V3 的 openEpoch 需 40.2M gas，
+        // 超过 BSC 协议单笔上限 16,777,216（BEP-652），永远无法开期）
         try {
-          const epochId = Number(await contract.currentEpochId());
-          pendingRankRewards = await safeRead(() => contract.pendingEpochReward(epochId, account), null);
+          const dist = CONTRACTS.RANK_DISTRIBUTOR && contract.runner
+            ? new ethers.Contract(CONTRACTS.RANK_DISTRIBUTOR, RANK_DISTRIBUTOR_ABI, contract.runner)
+            : null;
+          if (dist) {
+            const pc = await safeRead(() => dist.pendingClaimAll(account), null);
+            if (pc) pendingRankRewards = pc.total ?? pc[0] ?? null;
+          }
         } catch { /* keep null */ }
 
         const userStakes = await safeRead(() => contract.getUserStakes(account), null);
